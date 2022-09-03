@@ -680,8 +680,13 @@ class PopulationBasedTraining(FIFOScheduler):
                 trials.append(trial)
         trials.sort(key=lambda t: self._trial_state[t].last_score)
 
-        if len(trials) <= 1:
+        if len(trials) < 1:
             return [], []
+        elif len(trials) == 1 and len(self._trial_state) > 1:
+            # If there are other trials, and none of them have scores yet
+            # i.e. this is the first trial that `on_trial_result` is called
+            # Then you are in the upper quantile by default and should checkpoint
+            return [], [trials[0]]
         else:
             num_trials_in_quantile = int(
                 math.ceil(len(trials) * self._quantile_fraction)
