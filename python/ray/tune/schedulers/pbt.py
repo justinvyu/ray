@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import math
+import numpy as np
 import os
 import random
 import shutil
@@ -13,7 +14,7 @@ from ray.tune.error import TuneError
 from ray.tune.result import DEFAULT_METRIC, TRAINING_ITERATION
 from ray.tune.search import SearchGenerator
 from ray.tune.utils.util import SafeFallbackEncoder
-from ray.tune.search.sample import Domain, Function
+from ray.tune.search.sample import Domain, Function, Float, Integer
 from ray.tune.schedulers import FIFOScheduler, TrialScheduler
 from ray.tune.search.variant_generator import format_vars
 from ray.tune.experiment import Trial
@@ -43,6 +44,14 @@ class _PBTTrialState:
                 self.last_perturbation_time,
             )
         )
+
+
+def _clip_param_to_bounds(param_val, distribution):
+    if isinstance(distribution, Float) or isinstance(distribution, Integer):
+        lower, upper = distribution.lower, distribution.upper
+        clipped = np.clip(param_val, lower, upper)
+        return clipped
+    return param_val
 
 
 def _explore(
@@ -88,7 +97,9 @@ def _explore(
                 )
             else:
                 perturbation_factors = [1.2, 0.8]
-                new_config[key] = config[key] * random.choice(perturbation_factors)
+                perturbation_factor = random.choice(perturbation_factors)
+                new_param = config[key] * perturbation_factor
+                new_config[key] = _clip_param_to_bounds(new_param, distribution)
             if isinstance(config[key], int):
                 new_config[key] = int(new_config[key])
     if custom_explore_fn:
