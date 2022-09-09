@@ -682,11 +682,15 @@ class PopulationBasedTraining(FIFOScheduler):
 
         if len(trials) < 1:
             return [], []
-        elif len(trials) == 1 and len(self._trial_state) > 1:
-            # If there are other trials, and none of them have scores yet
-            # i.e. this is the first trial that `on_trial_result` is called
-            # Then you are in the upper quantile by default and should checkpoint
-            return [], [trials[0]]
+        elif len(trials) == 1:
+            if len(self._trial_state) > 1:
+                # If there are other trials, and none of them have scores yet
+                # i.e. this is the first trial that `on_trial_result` is called
+                # Then the trial is in the upper quantile by default
+                return [], [trials[0]]
+            else:
+                # Single trial PBT never needs to exploit
+                return [], []
         else:
             num_trials_in_quantile = int(
                 math.ceil(len(trials) * self._quantile_fraction)
