@@ -528,21 +528,21 @@ class PopulationBasedTraining(FIFOScheduler):
     ):
         """Checkpoint if in upper quantile, exploits if in lower."""
         state = self._trial_state[trial]
-        if trial in upper_quantile:
-            # The trial last result is only updated after the scheduler
-            # callback. So, we override with the current result.
-            logger.debug("Trial {} is in upper quantile".format(trial))
-            logger.debug("Checkpointing {}".format(trial))
-            if trial.status == Trial.PAUSED:
-                # Paused trial will always have an in-memory checkpoint.
-                state.last_checkpoint = trial.checkpoint
-            else:
-                state.last_checkpoint = trial_executor.save(
-                    trial, CheckpointStorage.MEMORY, result=state.last_result
-                )
-            self._num_checkpoints += 1
+        # if trial in upper_quantile:
+        # The trial last result is only updated after the scheduler
+        # callback. So, we override with the current result.
+        logger.debug("Trial {} is in upper quantile".format(trial))
+        logger.debug("Checkpointing {}".format(trial))
+        if trial.status == Trial.PAUSED:
+            # Paused trial will always have an in-memory checkpoint.
+            state.last_checkpoint = trial.checkpoint
         else:
-            state.last_checkpoint = None  # not a top trial
+            state.last_checkpoint = trial_executor.save(
+                trial, CheckpointStorage.MEMORY, result=state.last_result
+            )
+        self._num_checkpoints += 1
+        # else:
+        #     state.last_checkpoint = None  # not a top trial
 
         if trial in lower_quantile:
             logger.debug("Trial {} is in lower quantile".format(trial))
