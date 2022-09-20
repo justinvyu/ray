@@ -890,6 +890,7 @@ class PopulationBasedTestingSuite(unittest.TestCase):
         resample_prob=0.0,
         explore=None,
         perturbation_interval=10,
+        quantile_fraction=0.25,
         log_config=False,
         require_attrs=True,
         hyperparams=None,
@@ -908,7 +909,7 @@ class PopulationBasedTestingSuite(unittest.TestCase):
             mode="max",
             perturbation_interval=perturbation_interval,
             resample_probability=resample_prob,
-            quantile_fraction=0.25,
+            quantile_fraction=quantile_fraction,
             hyperparam_mutations=hyperparam_mutations,
             custom_explore_fn=explore,
             log_config=log_config,
@@ -1112,6 +1113,84 @@ class PopulationBasedTestingSuite(unittest.TestCase):
         self.assertIn(trials[-1].restored_checkpoint, ["trial_0", "trial_1"])
         self.assertIn(trials[-2].restored_checkpoint, ["trial_0", "trial_1"])
         self.assertEqual(pbt._num_perturbations, 2)
+
+    def testLowerQuantileTrialUpgrading(self):
+        """Tests PBT checkpointing behavior when a trial gets bumped from the lower
+        quantile to the higher quantile when another trial processes its result.
+
+        Trial 0: start ----> high score -----------> lower score | PAUSED
+        Trial 1: start ----------------> low score | PAUSED
+        """
+        pbt, runner = self.basicSetup(
+            num_trials=2, perturbation_interval=1, step_once=False, synch=False
+        )
+        trials = runner.get_trials()
+
+        # Trial 0 result comes first with score=100 (upper-quantile by default)
+        self.on_trial_result(
+            pbt, runner, trials[0], result(1, 100), TrialScheduler.CONTINUE
+        )
+        # Trial 1 result comes second with score=50 (lower quantile)
+        # Trial 1 should try to exploit Trial 0, pausing Trial 1
+        # (returns NOOP as the scheduler decision since already paused manually)
+        self.on_trial_result(pbt, runner, trials[1], result(1, 50), TrialScheduler.NOOP)
+
+        # Trial 0 result comes with score=0
+        # Trial 0 should try to exploit Trial 1, which is now upgraded to upper-quantile
+        # (returns PAUSE as the decision since trials[1] is paused)
+        perturbs_before = pbt._num_perturbations
+        self.on_trial_result(pbt, runner, trials[0], result(2, 0), TrialScheduler.PAUSE)
+        assert (
+            pbt._num_perturbations == perturbs_before + 1
+        ), "Trial 0 should have exploited and perturbed trial 1"
+
+    def testUpperQuantileTrialDowngrading(self):
+        """Tests PBT checkpointing behavior when a trial gets removed from the upper
+        quantile when another trial processes its result.
+
+        Trial 0: start ---> score=50 -----------------------------------> score=50
+        Trial 1: start ------------> score=100 --------> score=100
+        Trial 2: start ----------------------> score=150 -------> score=75
+        """
+        pbt, runner = self.basicSetup(
+            num_trials=3, perturbation_interval=1, quantile_fraction=0.25, step_once=False, synch=False
+        )
+        trials = runner.get_trials()
+
+        def get_middle_quantile(trials, lower, upper):
+            return [t for t in trials if t not in upper and t not in lower]
+
+        # Trial 0 result comes first with score=50
+        self.on_trial_result(
+            pbt, runner, trials[0], result(1, 50), TrialScheduler.CONTINUE
+        )
+        # Trial 1 result comes second with score=100 (upper quantile)
+        self.on_trial_result(pbt, runner, trials[1], result(1, 50), TrialScheduler.CONTINUE)
+        # Trial 2 result comes last with score=150
+        self.on_trial_result(pbt, runner, trials[2], result(1, 150), TrialScheduler.CONTINUE)
+
+        # Quantiles are now: upper = [trial_2], middle = [trial_1], lower = [trial_0]
+        lower, upper = pbt._quantiles()
+        middle = get_middle_quantile(trials, lower, upper)
+        assert upper == [trials[2]] and middle == [trials[1]] and lower == [trials[0]]
+
+        # Trial 0 comes in with the same score=100 and has been downgraded
+        self.on_trial_result(pbt, runner, trials[1], result(2, 100), TrialScheduler.CONTINUE)
+
+        # A new Trial 2 result comes with score=75
+        # Quantiles are now: upper = [trial_1], middle = [trial_2], lower = [trial_0]
+        self.on_trial_result(pbt, runner, trials[2], result(2, 75), TrialScheduler.CONTINUE)
+        lower, upper = pbt._quantiles()
+        middle = get_middle_quantile(trials, lower, upper)
+        assert upper == [trials[1]] and middle == [trials[2]] and lower == [trials[0]]
+
+        # Trial 0 comes with score=50
+        # Trial 0 should exploit Trial 1
+        perturbs_before = pbt._num_perturbations
+        self.on_trial_result(pbt, runner, trials[0], result(2, 50), TrialScheduler.NOOP)
+        assert (
+            pbt._num_perturbations == perturbs_before + 1
+        ), "Trial 0 should have exploited and perturbed trial 1's config"
 
     def testPerturbWithoutResample(self):
         pbt, runner = self.basicSetup(resample_prob=0.0)
