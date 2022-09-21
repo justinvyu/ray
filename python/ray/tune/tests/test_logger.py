@@ -81,6 +81,35 @@ class LoggerSuite(unittest.TestCase):
         logger.on_trial_complete(3, [], t)
         self._validate_csv_result()
 
+    def testCSVNewFields(self):
+        config = {}
+        t = Trial(evaluated_params=config, trial_id="csv", logdir=self.test_dir)
+        logger = CSVLoggerCallback()
+        all_fields = ["a", "b", "c"]
+        results = [
+            {"a": 1},
+            {"b": 2},
+            {"a": 1, "b": 2, "c": 3},
+            {"c": 4},
+        ]
+        for i, result in enumerate(results):
+            logger.on_trial_result(i, [], t, result)
+
+        row_idx = 0
+        result_file = os.path.join(self.test_dir, EXPR_PROGRESS_FILE)
+        with open(result_file, "rt") as fp:
+            reader = csv.DictReader(fp)
+            for row in reader:
+                for field in all_fields:
+                    assert field in row, field
+                    field_val = int(float(row[field])) if row[field] else row[field]
+                    assert results[row_idx].get(field, "") == field_val, (
+                        results[row_idx].get(field, None),
+                        field_val,
+                    )
+                row_idx += 1
+        self.assertEqual(row_idx, 4)
+
     def testCSVEmptyHeader(self):
         """Test that starting a trial twice does not lead to empty CSV headers.
 
