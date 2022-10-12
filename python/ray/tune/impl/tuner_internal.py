@@ -1,6 +1,7 @@
 import copy
 import os
 import math
+import logging
 import warnings
 import shutil
 import tempfile
@@ -21,6 +22,9 @@ from ray.tune.tune_config import TuneConfig
 
 if TYPE_CHECKING:
     from ray.train.trainer import BaseTrainer
+
+logger = logging.getLogger(__name__)
+
 
 _TRAINABLE_PKL = "trainable.pkl"
 _TUNER_PKL = "tuner.pkl"
@@ -77,10 +81,28 @@ class TunerInternal:
     ):
         from ray.train.trainer import BaseTrainer
 
-        # If no run config was passed to Tuner directly, use the one from the Trainer,
-        # if available
-        if not run_config and isinstance(trainable, BaseTrainer):
-            run_config = trainable.run_config
+        # It's possible to pass in a `air.RunConfig` to a `BaseTrainer`, so we must
+        # handle the case where it's passed into one or the other or both.
+        if isinstance(trainable, BaseTrainer):
+            if (
+                run_config
+                and trainable.run_config
+                and run_config != trainable.run_config
+            ):
+                logger.warning(
+                    f"You have specified a `run_config` in both {trainable} and the "
+                    "Tuner. The Tuner's `run_config` will overwrite the Trainer's "
+                    "config."
+                )
+
+            if run_config:
+                # If a run config is passed in, overwrite the Trainer's run config
+                trainable.run_config = run_config
+                trainable._param_dict["run_config"] = run_config
+            else:
+                # If no run config was passed to Tuner directly, use the one from the
+                # Trainer if available
+                run_config = trainable.run_config
 
         self._tune_config = tune_config or TuneConfig()
         self._run_config = run_config or RunConfig()

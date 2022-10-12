@@ -46,6 +46,7 @@ class TrialInfo:
     id: str
     resources: Dict[str, float]
     logdir: str
+    chdir_to_log_dir: bool
 
 
 @dataclass
@@ -64,8 +65,7 @@ class _TrainSession:
         world_rank: int,
         local_rank: int,
         world_size: int,
-        # TODO(xwjiang): Legacy Ray Train trainer clean up!
-        trial_info: Optional[TrialInfo] = None,
+        trial_info: TrialInfo,
         dataset_shard: Optional[Union[Dataset, DatasetPipeline]] = None,
         # TODO(xwjiang): Legacy Ray Train trainer clean up!
         checkpoint: Optional[Union[Dict, Checkpoint]] = None,
@@ -91,12 +91,11 @@ class _TrainSession:
             encode_data_fn = noop
         self._encode_data_fn = encode_data_fn
 
-        # TODO(xwjiang): Legacy Ray Train trainer clean up!
-        if trial_info:
+        self.logdir = os.path.join(trial_info.logdir, f"rank_{self.world_rank}")
+        os.makedirs(self.logdir, exist_ok=True)
+        if trial_info.chdir_to_log_dir:
             # Change the working directory to `logdir`.
-            logdir = os.path.join(trial_info.logdir, f"rank_{self.world_rank}")
-            os.makedirs(logdir, exist_ok=True)
-            os.chdir(logdir)
+            os.chdir(self.logdir)
 
         # This lock is used to control the execution of the training thread.
         self.continue_lock = threading.Semaphore(0)
