@@ -20,6 +20,7 @@ from ray.air.checkpoint import (
     Checkpoint,
     _DICT_CHECKPOINT_ADDITIONAL_FILE_KEY,
 )
+from ray.exceptions import RayTaskError
 from ray.tune.resources import Resources
 from ray.tune.result import (
     DEBUG_METRICS,
@@ -307,8 +308,14 @@ class Trainable:
         return results
 
     def _log_custom_error_if_possible(self, exception: Exception):
+        # Unwrap exception if within a RayTaskError
+        if isinstance(exception, RayTaskError):
+            exception = exception.cause
+
         if isinstance(exception, FileNotFoundError):
             file_not_found: FileNotFoundError = exception
+            if not file_not_found.filename:
+                return
             attempted_filepath = Path(file_not_found.filename)
             orig_working_dir = os.environ.get("TUNE_ORIG_WORKING_DIR", None)
             # Check if the relative path was trying to reference a location at
