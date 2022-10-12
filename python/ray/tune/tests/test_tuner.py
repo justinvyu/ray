@@ -321,12 +321,14 @@ def test_tuner_fn_trainable_checkpoint_at_end_none():
 
 
 @pytest.mark.parametrize("runtime_env", [{}, {"working_dir": "."}])
-def test_tuner_no_chdir_to_trial_dir(runtime_env):
-    """Tests that setting `chdir_to_trial_dir=False` in `TuneConfig` allows for
+def test_tuner_no_chdir_to_log_dir(runtime_env):
+    """Tests that setting `chdir_to_log_dir=False` in `air.RunConfig` allows for
     reading relatives paths to the original working directory.
     Also tests that `TUNE_TRIAL_DIR` env variable can be used as the directory
     to write data to within the Trainable.
     """
+    if ray.is_initialized():
+        ray.shutdown()
     ray.init(num_cpus=1, runtime_env=runtime_env)
 
     # Write a data file that we want to read in our training loop
@@ -353,8 +355,8 @@ def test_tuner_no_chdir_to_trial_dir(runtime_env):
 
     tuner = Tuner(
         train_func,
-        tune_config=TuneConfig(
-            chdir_to_trial_dir=False,
+        run_config=air.RunConfig(
+            chdir_to_log_dir=False,
         ),
         param_space={"id": tune.grid_search(list(range(4)))},
     )
@@ -369,7 +371,9 @@ def test_tuner_relative_pathing_with_env_vars(runtime_env):
     """
     # Even if we set our runtime_env `{"working_dir": "."}` to the current directory,
     # Tune should still chdir to the trial directory, since we didn't disable the
-    # `chdir_to_trial_dir` flag.
+    # `chdir_to_log_dir` flag.
+    if ray.is_initialized():
+        ray.shutdown()
     ray.init(num_cpus=1, runtime_env=runtime_env)
 
     # Write a data file that we want to read in our training loop
@@ -398,8 +402,8 @@ def test_tuner_relative_pathing_with_env_vars(runtime_env):
 
     tuner = Tuner(
         train_func,
-        tune_config=TuneConfig(
-            chdir_to_trial_dir=True,
+        run_config=air.RunConfig(
+            chdir_to_log_dir=True,
         ),
         param_space={"id": tune.grid_search(list(range(4)))},
     )

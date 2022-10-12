@@ -688,6 +688,7 @@ class RunConfig:
     progress_reporter: Optional["ProgressReporter"] = None
     verbose: Union[int, "Verbosity"] = 3
     log_to_file: Union[bool, str, Tuple[str, str]] = False
+    chdir_to_log_dir: bool = True
 
     def __post_init__(self):
         from ray.tune.syncer import SyncConfig

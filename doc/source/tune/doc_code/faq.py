@@ -431,7 +431,7 @@ if not MOCK:
 
     tuner = tune.Tuner(
         train_func,
-        tune_config=tune.TuneConfig(..., chdir_to_trial_dir=False),
+        run_config=air.RunConfig(..., chdir_to_log_dir=False),
     )
     tuner.fit()
     # __no_chdir_end__
@@ -447,7 +447,7 @@ if not MOCK:
 
     tuner = tune.Tuner(
         train_func,
-        tune_config=tune.TuneConfig(..., chdir_to_trial_dir=True),
+        run_config=air.RunConfig(..., chdir_to_log_dir=True),
     )
     tuner.fit()
     # __abspath_with_env_var_end__

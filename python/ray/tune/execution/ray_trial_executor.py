@@ -212,7 +212,7 @@ class RayTrialExecutor:
         reuse_actors: bool = False,
         result_buffer_length: Optional[int] = None,
         refresh_period: Optional[float] = None,
-        chdir_to_trial_dir: bool = False,
+        chdir_to_log_dir: bool = False,
     ):
         self._cached_trial_state = {}
         self._trials_to_cache = set()
@@ -253,7 +253,7 @@ class RayTrialExecutor:
         )
         self._trainable_kwargs = {}
 
-        self._chdir_to_trial_dir = chdir_to_trial_dir
+        self._chdir_to_log_dir = chdir_to_log_dir
 
     def setup(
         self, max_pending_trials: int, trainable_kwargs: Optional[Dict] = None
@@ -348,7 +348,7 @@ class RayTrialExecutor:
         logger_creator = partial(
             _noop_logger_creator,
             logdir=trial.logdir,
-            should_chdir=self._chdir_to_trial_dir,
+            should_chdir=self._chdir_to_log_dir,
         )
 
         if len(self._cached_actor_pg) > 0:
