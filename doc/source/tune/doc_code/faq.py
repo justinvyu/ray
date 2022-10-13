@@ -421,7 +421,6 @@ if not MOCK:
         # Read from relative paths
         print(open("./read.txt").read())
 
-        # Access working dir, which should be the same as `os.getcwd()`
         assert os.getcwd() == os.environ["RAY_ORIG_WORKING_DIR"]
 
         # Write to the Tune trial directory, NOT the shared working dir
@@ -441,7 +440,7 @@ if not MOCK:
         orig_working_dir = Path(os.environ["RAY_ORIG_WORKING_DIR"])
         print(open(orig_working_dir / "read.txt").read())
 
-        # Write to the Tune trial directory, which is the current `os.getcwd()`
+        # Write to the Tune trial directory, which is the current working directory
         with open("./write.txt", "w") as f:
             f.write("test write")
 
