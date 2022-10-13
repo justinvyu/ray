@@ -10,7 +10,6 @@ import time
 import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union, TYPE_CHECKING
 
 import ray
@@ -307,41 +306,6 @@ class Trainable:
 
         return results
 
-    def _log_custom_error_if_possible(self, exception: Exception):
-        # Unwrap exception if within a RayTaskError
-        if isinstance(exception, RayTaskError):
-            exception = exception.cause
-
-        if isinstance(exception, FileNotFoundError):
-            file_not_found: FileNotFoundError = exception
-            if not file_not_found.filename:
-                return
-            attempted_filepath = Path(file_not_found.filename)
-            orig_working_dir = os.environ.get("RAY_ORIG_WORKING_DIR", None)
-            # Check if the relative path was trying to reference a location at
-            # `{RAY_ORIG_WORKING_DIR}/<attempted_filepath>`
-            if orig_working_dir and not attempted_filepath.is_absolute():
-                new_filepath = Path(orig_working_dir) / attempted_filepath
-                if new_filepath.exists():
-                    logger.error(
-                        "You are trying to read from a path relative to the "
-                        "directory which you originally launched the Tune "
-                        "experiment from. However, Tune changes the working "
-                        "directory to the trial directory by default to prevent "
-                        "write conflicts between workers on the same node "
-                        f"(current working directory = {os.getcwd()}). "
-                        "You can read from relative paths using one of the following:\n"
-                        "  (1) Setting `chdir_to_log_dir=False` in "
-                        "`air.RunConfig` to not change the working directory OR\n"
-                        "  (2) Convert relative paths to absolute paths with the "
-                        "environment variable: `os.environ['RAY_ORIG_WORKING_DIR']`.\n"
-                        "      Example:\n"
-                        "        from pathlib import Path\n"
-                        "        def train_func(config):\n"
-                        "          open(Path(os.environ['RAY_ORIG_WORKING_DIR']) "
-                        "/ 'data.csv', 'r').read()"
-                    )
-
     def train(self):
         """Runs one logical iteration of training.
 
@@ -389,7 +353,6 @@ class Trainable:
             result = self.step()
         except Exception as e:
             skipped = skip_exceptions(e)
-            self._log_custom_error_if_possible(skipped)
             raise skipped from exception_cause(skipped)
 
         assert isinstance(result, dict), "step() needs to return a dict."
