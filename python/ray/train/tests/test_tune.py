@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 
 import pytest
 
 import ray
-from ray import tune
+from ray import air, tune
 from ray.air import Checkpoint, session
 from ray.air.config import FailureConfig, RunConfig, ScalingConfig
 from ray.train._internal.worker_group import WorkerGroup
@@ -222,6 +223,65 @@ def test_retry(ray_start_4_cpus):
 
     trial_dfs = list(analysis.trial_dataframes.values())
     assert len(trial_dfs[0]["training_iteration"]) == 4
+
+
+@pytest.mark.parametrize("trainer_fit", [True, False])
+def test_no_chdir_to_log_dir(ray_start_4_cpus, trainer_fit):
+    # Write a data file that we want to read in our training loop
+    with open("./read.txt", "w") as f:
+        f.write("data")
+
+    def train_func(config):
+        orig_working_dir = os.environ["RAY_ORIG_WORKING_DIR"]
+        assert orig_working_dir == os.getcwd(), (
+            "Working directory should not have changed from "
+            f"{orig_working_dir} to {os.getcwd()}"
+        )
+        # Make sure we can access the data from the original working dir
+        assert os.path.exists("./read.txt") and open("./read.txt", "r").read() == "data"
+
+        # Write operations should happen in each trial's independent logdir to
+        # prevent write conflicts
+        trial_dir = Path(session.get_log_dir())
+        with open(trial_dir / "write.txt", "w") as f:
+            f.write(f"{session.get_local_rank()}")
+        # Make sure that the file we wrote to isn't overwritten
+        assert (
+            open(trial_dir / "write.txt", "r").read() == f"{session.get_local_rank()}"
+        )
+
+    trainer = DataParallelTrainer(
+        train_func,
+        backend_config=TestConfig(),
+        scaling_config=ScalingConfig(num_workers=2),
+        run_config=air.RunConfig(chdir_to_log_dir=False),
+    )
+
+    # Test both `Trainer.fit` and `Tuner.fit` entry points
+    if trainer_fit:
+        trainer.fit()
+    else:
+        tuner = Tuner(trainer)
+        tuner.fit()
+    ray.shutdown()
+
+
+def test_tuner_run_config_overwrite():
+    """`air.RunConfig` can be passed into both the Trainer and Tuner.
+    In this case, the Tuner `RunConfig` should overwrite the Trainer's config."""
+    old_run_config = air.RunConfig(chdir_to_log_dir=False)
+    trainer = DataParallelTrainer(
+        lambda config: session.report({}),
+        backend_config=TestConfig(),
+        scaling_config=ScalingConfig(num_workers=1),
+        run_config=old_run_config,
+    )
+    new_run_config = air.RunConfig(chdir_to_log_dir=True)
+    tuner = Tuner(trainer, run_config=new_run_config)
+
+    assert (
+        trainer.run_config == new_run_config
+    ), "{trainer.run_config} should have been overwritten to {new_run_config}"
 
 
 if __name__ == "__main__":
