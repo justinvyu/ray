@@ -422,10 +422,10 @@ if not MOCK:
         print(open("./read.txt").read())
 
         # Access working dir, which should be the same as `os.getcwd()`
-        assert os.getcwd() == os.environ["TUNE_ORIG_WORKING_DIR"]
+        assert os.getcwd() == os.environ["RAY_ORIG_WORKING_DIR"]
 
         # Write to the Tune trial directory, NOT the shared working dir
-        tune_trial_dir = Path(os.environ["TUNE_TRIAL_DIR"])
+        tune_trial_dir = Path(session.get_log_dir())
         with open(tune_trial_dir / "write.txt", "w") as f:
             f.write("trial saved artifact")
 
@@ -438,7 +438,7 @@ if not MOCK:
 
     # __abspath_with_env_var_start__
     def train_func(config):
-        orig_working_dir = Path(os.environ["TUNE_ORIG_WORKING_DIR"])
+        orig_working_dir = Path(os.environ["RAY_ORIG_WORKING_DIR"])
         print(open(orig_working_dir / "read.txt").read())
 
         # Write to the Tune trial directory, which is the current `os.getcwd()`

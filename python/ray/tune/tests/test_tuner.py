@@ -337,7 +337,7 @@ def test_tuner_no_chdir_to_log_dir(runtime_env):
         f.write("data")
 
     def train_func(config):
-        orig_working_dir = Path(os.environ["TUNE_ORIG_WORKING_DIR"])
+        orig_working_dir = os.environ["RAY_ORIG_WORKING_DIR"]
         assert orig_working_dir == os.getcwd(), (
             "Working directory should not have changed from "
             f"{orig_working_dir} to {os.getcwd()}"
@@ -368,7 +368,7 @@ def test_tuner_no_chdir_to_log_dir(runtime_env):
 
 @pytest.mark.parametrize("runtime_env", [{}, {"working_dir": "."}])
 def test_tuner_relative_pathing_with_env_vars(runtime_env):
-    """Tests that `TUNE_ORIG_WORKING_DIR` environment variable can be used to access
+    """Tests that `RAY_ORIG_WORKING_DIR` environment variable can be used to access
     relative paths to the original working directory.
     """
     # Even if we set our runtime_env `{"working_dir": "."}` to the current directory,
@@ -383,7 +383,7 @@ def test_tuner_relative_pathing_with_env_vars(runtime_env):
         f.write("data")
 
     def train_func(config):
-        orig_working_dir = Path(os.environ["TUNE_ORIG_WORKING_DIR"])
+        orig_working_dir = Path(os.environ["RAY_ORIG_WORKING_DIR"])
         assert (
             str(orig_working_dir) != os.getcwd()
         ), f"Working directory should have changed from {orig_working_dir}"

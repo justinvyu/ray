@@ -775,7 +775,7 @@ Option 2: Manual control using environment variables
 ''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The second option is to allow Tune to change the working directory and use the
-``TUNE_ORIG_WORKING_DIR`` environment variable to convert relative paths to the
+``RAY_ORIG_WORKING_DIR`` environment variable to convert relative paths to the
 correct absolute path in your training function. Writes can happen relative to the
 working directory, since it's been changed to an independent trial directory.
 

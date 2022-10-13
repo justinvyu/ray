@@ -89,7 +89,7 @@ class Trainable:
     write to the same location and overstep each other.
 
     If you want to know the orginal working directory path on the driver node,
-    you can do so through env variable "TUNE_ORIG_WORKING_DIR".
+    you can do so through env variable "RAY_ORIG_WORKING_DIR".
     It is advised that you access this path for read only purposes and you
     need to make sure that the path exists on the remote nodes.
 
@@ -317,9 +317,9 @@ class Trainable:
             if not file_not_found.filename:
                 return
             attempted_filepath = Path(file_not_found.filename)
-            orig_working_dir = os.environ.get("TUNE_ORIG_WORKING_DIR", None)
+            orig_working_dir = os.environ.get("RAY_ORIG_WORKING_DIR", None)
             # Check if the relative path was trying to reference a location at
-            # `{TUNE_ORIG_WORKING_DIR}/<attempted_filepath>`
+            # `{RAY_ORIG_WORKING_DIR}/<attempted_filepath>`
             if orig_working_dir and not attempted_filepath.is_absolute():
                 new_filepath = Path(orig_working_dir) / attempted_filepath
                 if new_filepath.exists():
@@ -334,11 +334,11 @@ class Trainable:
                         "  (1) Setting `chdir_to_log_dir=False` in "
                         "`air.RunConfig` to not change the working directory OR\n"
                         "  (2) Convert relative paths to absolute paths with the "
-                        "environment variable: `os.environ['TUNE_ORIG_WORKING_DIR']`.\n"
+                        "environment variable: `os.environ['RAY_ORIG_WORKING_DIR']`.\n"
                         "      Example:\n"
                         "        from pathlib import Path\n"
                         "        def train_func(config):\n"
-                        "          open(Path(os.environ['TUNE_ORIG_WORKING_DIR']) "
+                        "          open(Path(os.environ['RAY_ORIG_WORKING_DIR']) "
                         "/ 'data.csv', 'r').read()"
                     )
 

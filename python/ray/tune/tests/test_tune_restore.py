@@ -526,7 +526,7 @@ class WorkingDirectoryTest(unittest.TestCase):
         working_dir = os.getcwd()
 
         def f(config):
-            assert os.environ.get("TUNE_ORIG_WORKING_DIR") == working_dir
+            assert os.environ.get("RAY_ORIG_WORKING_DIR") == working_dir
 
         tune.run(f)
 

@@ -296,9 +296,9 @@ def run(
             working dir to their corresponding trial-level directory.
             If set to False, files are accessible with paths relative to the directory
             that the Tune experiment is launched from. The trial directory can be
-            accessible through the `TUNE_TRIAL_DIR` env variable.
+            accessible through `session.get_log_dir()`.
             If set to True, the original directory can still be accessed by the
-            `TUNE_ORIG_WORKING_DIR` env variable.
+            `RAY_ORIG_WORKING_DIR` env variable.
             Defaults to True to prevent file write contention if workers try writing to
             relative paths that may be shared if the working directory is not changed.
         sync_config: Configuration object for syncing. See

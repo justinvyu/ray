@@ -92,6 +92,7 @@ class _TrainSession:
         self._encode_data_fn = encode_data_fn
 
         self.logdir = os.path.join(trial_info.logdir, f"rank_{self.world_rank}")
+        os.environ["RAY_ORIG_WORKING_DIR"] = os.getcwd()
         os.makedirs(self.logdir, exist_ok=True)
         if trial_info.chdir_to_log_dir:
             # Change the working directory to `logdir`.
