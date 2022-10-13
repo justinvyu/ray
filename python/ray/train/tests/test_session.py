@@ -11,9 +11,10 @@ from ray.train._internal.session import (
     init_session,
     shutdown_session,
     get_session,
-    TrainingResultType,
     get_accelerator,
     set_accelerator,
+    TrainingResultType,
+    TrialInfo,
 )
 from ray.train.train_loop_utils import (
     world_rank,
@@ -32,7 +33,19 @@ def session():
     def f():
         return 1
 
-    init_session(training_func=f, world_rank=0, local_rank=0, world_size=1)
+    init_session(
+        training_func=f,
+        world_rank=0,
+        local_rank=0,
+        world_size=1,
+        trial_info=TrialInfo(
+            name="test_session",
+            id="session_id",
+            resources={"CPU": 1},
+            logdir="test_logdir",
+            chdir_to_log_dir=False,
+        ),
+    )
     yield get_session()
     shutdown_session()
 

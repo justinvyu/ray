@@ -49,6 +49,8 @@ class BackendExecutor:
     Args:
         backend_config: The configurations for this
             specific backend.
+        trial_info: Contains information relating to the Tune trial that the workers
+            managed by BackendExecutor are running under.
         num_workers: Number of workers to use for training.
         num_cpus_per_worker: Number of CPUs to use per worker.
         num_gpus_per_worker: Number of GPUs to use per worker.
@@ -63,8 +65,7 @@ class BackendExecutor:
     def __init__(
         self,
         backend_config: BackendConfig,
-        # TODO(xwjiang): Legacy Ray Train trainer clean up!
-        trial_info: Optional[TrialInfo] = None,
+        trial_info: TrialInfo,
         num_workers: int = 1,
         num_cpus_per_worker: float = 1,
         num_gpus_per_worker: float = 0,

@@ -20,6 +20,7 @@ from ray.train._internal.backend_executor import (
     TrainingWorkerError,
 )
 from ray.train._internal.dataset_spec import RayDatasetSpec
+from ray.train._internal.session import TrialInfo
 from ray.train._internal.worker_group import WorkerGroup
 from ray.train.backend import Backend, BackendConfig
 from ray.train.constants import (
@@ -121,7 +122,15 @@ def test_start(ray_start_2_cpus):
 
 def test_initialization_hook(ray_start_2_cpus):
     config = TestConfig()
-    e = BackendExecutor(config, num_workers=2)
+    # Initialize with some dummy trial info
+    trial_info = TrialInfo(
+        name="test_session",
+        id="session_id",
+        resources={"CPU": 1},
+        logdir="test_logdir",
+        chdir_to_log_dir=False,
+    )
+    e = BackendExecutor(config, trial_info, num_workers=2)
 
     def init_hook():
         import os

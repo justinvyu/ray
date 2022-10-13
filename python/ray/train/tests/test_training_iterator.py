@@ -14,6 +14,7 @@ from ray.air._internal.util import StartTraceback
 from ray.train.backend import BackendConfig
 
 from ray.train._internal.backend_executor import BackendExecutor
+from ray.train._internal.session import TrialInfo
 from ray.train._internal.utils import ActorWrapper, construct_train_func
 from ray.train._internal.checkpoint import CheckpointManager
 from ray.train.examples.tensorflow_mnist_example import (
@@ -75,8 +76,18 @@ def create_iterator(
 
     remote_executor = ray.remote(num_cpus=0)(backend_executor)
 
+    # Initialize with some dummy trial info
+    trial_info = TrialInfo(
+        name="test_session",
+        id="session_id",
+        resources={"CPU": 1},
+        logdir="test_logdir",
+        chdir_to_log_dir=False,
+    )
+
     backend_executor_actor = remote_executor.remote(
         backend_config=backend_config,
+        trial_info=trial_info,
         num_workers=num_workers,
     )
 
