@@ -35,7 +35,7 @@ class StatsforecastTrainer(BaseTrainer):
         metrics: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         n_splits: int = 5,
-        test_size: int = None,
+        test_size: Optional[int] = None,
         return_train_score_cv: bool = False,
         parallelize_cv: Optional[bool] = None,
         set_estimator_cpus: bool = True,
@@ -95,9 +95,7 @@ class StatsforecastTrainer(BaseTrainer):
             pd_datasets[key] = pd_dataset
         return pd_datasets
 
-    def _compute_metrics_and_aggregate(
-        self, forecasts_cv: pd.DataFrame
-    ) -> Tuple[Dict, Dict]:
+    def _compute_metrics_and_aggregate(self, forecasts_cv: pd.DataFrame) -> Dict:
         cutoff_values = forecasts_cv["cutoff"].unique()
         cv_metrics = defaultdict(list)
         for ct in cutoff_values:
@@ -118,7 +116,12 @@ class StatsforecastTrainer(BaseTrainer):
                 )
                 cv_aggregates[f"{metric_name}_mean"] = np.nan
                 cv_aggregates[f"{metric_name}_std"] = np.nan
-        return cv_metrics, cv_aggregates
+
+        return {
+            **cv_metrics,
+            **cv_aggregates,
+            "cutoff_values": cutoff_values,
+        }
 
     def setup(self) -> None:
         # Construct the model from the class/params passed in
@@ -161,7 +164,11 @@ class StatsforecastTrainer(BaseTrainer):
             # TODO(justinvyu): add more kwargs for user here?
         )
 
-        # Perform temporal cross validation
+        # TODO(justinvyu): Fit model and save it? Should this be optional?
+        # Wasted computation if you need to retrain on a new dataframe with new points
+        # self.model.fit()
+
+        # dataPerform temporal cross validation
         # Set args in statsforecast.cross_validation to match the splitting behavior of
         # sklearn's TimeSeriesSplit
         # Configurations: `n_splits`, `test_size`
@@ -176,21 +183,20 @@ class StatsforecastTrainer(BaseTrainer):
         # Train = [0, 1, 2, 3]   Test = [4, 5]
         # ...
 
-        test_size = self.test_size or len(Y_train_df) // (self.n_splits + 1)
+        self.test_size = self.test_size or len(Y_train_df) // (self.n_splits + 1)
 
         start_time = time.time()
         forecasts_cv = statsforecast.cross_validation(
-            h=test_size, n_windows=self.n_splits, step_size=test_size
+            h=self.test_size, n_windows=self.n_splits, step_size=self.test_size
         )
         cv_time = time.time() - start_time
 
         # Compute metrics (according to `self.metrics`)
-        cv_metrics, cv_aggregates = self._compute_metrics_and_aggregate(forecasts_cv)
+        cv_results = self._compute_metrics_and_aggregate(forecasts_cv)
 
         # Report metrics to Tune
         results = {
-            **cv_aggregates,
-            **cv_metrics,
+            **cv_results,
             "cv_time": cv_time,
         }
         session.report(results)
