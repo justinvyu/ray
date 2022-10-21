@@ -1,7 +1,7 @@
 import logging
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -96,29 +96,45 @@ class StatsforecastTrainer(BaseTrainer):
         return pd_datasets
 
     def _compute_metrics_and_aggregate(self, forecasts_cv: pd.DataFrame) -> Dict:
-        cutoff_values = forecasts_cv["cutoff"].unique()
-        cv_metrics = defaultdict(list)
-        for ct in cutoff_values:
-            window_df = forecasts_cv[forecasts_cv["cutoff"] == ct]
-            for metric_name, metric_fn in self.metrics.items():
-                cv_metrics[metric_name].append(
-                    metric_fn(window_df["y"], window_df[self.model.__class__.__name__])
-                )
+        # unique_id values are the index of the forecasts dataframe
+        unique_ids = forecasts_cv.index.unique()
 
         cv_aggregates = {}
-        for metric_name, metric_vals in cv_metrics.items():
-            try:
-                cv_aggregates[f"{metric_name}_mean"] = np.nanmean(metric_vals)
-                cv_aggregates[f"{metric_name}_std"] = np.nanstd(metric_vals)
-            except Exception as e:
-                logger.warning(
-                    f"Couldn't calculate aggregate metrics for CV folds! {e}"
-                )
-                cv_aggregates[f"{metric_name}_mean"] = np.nan
-                cv_aggregates[f"{metric_name}_std"] = np.nan
+        for unique_id in unique_ids:
+            # Calculate metrics separately for each series
+            forecasts_for_id = forecasts_cv[forecasts_cv.index == unique_id]
+            cutoff_values = forecasts_for_id["cutoff"].unique()
+
+            cv_metrics = defaultdict(list)
+            for ct in cutoff_values:
+                # Get CV metrics for a specific training window
+                # All forecasts made with the same `cutoff` date
+                window_df = forecasts_for_id[forecasts_for_id["cutoff"] == ct]
+                for metric_name, metric_fn in self.metrics.items():
+                    cv_metrics[metric_name].append(
+                        metric_fn(
+                            window_df["y"], window_df[self.model.__class__.__name__]
+                        )
+                    )
+
+            for metric_name, metric_vals in cv_metrics.items():
+                try:
+                    cv_aggregates[f"{unique_id}/{metric_name}_mean"] = np.nanmean(
+                        metric_vals
+                    )
+                    cv_aggregates[f"{unique_id}/{metric_name}_std"] = np.nanstd(
+                        metric_vals
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Couldn't calculate aggregate metrics for CV folds! {e}"
+                    )
+                    cv_aggregates[f"{unique_id}/{metric_name}_mean"] = np.nan
+                    cv_aggregates[f"{unique_id}/{metric_name}_std"] = np.nan
 
         return {
-            **cv_metrics,
+            "unique_ids": list(unique_ids),
+            # **cv_metrics,
             **cv_aggregates,
             "cutoff_values": cutoff_values,
         }
@@ -168,7 +184,7 @@ class StatsforecastTrainer(BaseTrainer):
         # Wasted computation if you need to retrain on a new dataframe with new points
         # self.model.fit()
 
-        # dataPerform temporal cross validation
+        # Perform temporal cross validation
         # Set args in statsforecast.cross_validation to match the splitting behavior of
         # sklearn's TimeSeriesSplit
         # Configurations: `n_splits`, `test_size`
