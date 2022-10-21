@@ -82,6 +82,30 @@ class StatsforecastTrainer(BaseTrainer):
             resume_from_checkpoint=None,
         )
 
+    def _validate_attributes(self):
+        super()._validate_attributes()
+
+        if self.params is not None and not isinstance(self.params, dict):
+            raise ValueError(f"`params` must be a dict or None, got '{self.params}'")
+
+        if not isinstance(self.return_train_forecasts_cv, bool):
+            raise ValueError(
+                f"`return_train_forecasts_cv` must be a boolean, got "
+                f"'{self.return_train_score_cv}'"
+            )
+
+        if TRAIN_DATASET_KEY not in self.datasets:
+            raise KeyError(
+                f"'{TRAIN_DATASET_KEY}' key must be preset in `datasets`. "
+                f"Got {list(self.datasets.keys())}"
+            )
+        scaling_config = self._validate_scaling_config(self.scaling_config)
+        if self.parallelize_cv and scaling_config.trainer_resources.get("GPU", 0):
+            raise ValueError(
+                "`parallelize_cv` cannot be True if there are GPUs assigned to the "
+                "trainer."
+            )
+
     def _get_datasets(self) -> Dict[str, pd.DataFrame]:
         pd_datasets = {}
         for key, ray_dataset in self.datasets.items():
