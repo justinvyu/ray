@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from statsforecast import StatsForecast
 
-from ray.air import session
+from ray.air import Checkpoint, session
 from ray.air.config import RunConfig, ScalingConfig
 from ray.train.constants import TRAIN_DATASET_KEY
 from ray.train.trainer import BaseTrainer, GenDataset
@@ -36,8 +36,8 @@ class StatsforecastTrainer(BaseTrainer):
         params: Optional[Dict[str, Any]] = None,
         n_splits: int = 5,
         test_size: Optional[int] = None,
-        return_train_score_cv: bool = False,
-        parallelize_cv: Optional[bool] = None,
+        return_train_forecasts_cv: bool = False,
+        parallelize_cv: bool = True,
         set_estimator_cpus: bool = True,
         scaling_config: Optional[ScalingConfig] = None,
         run_config: Optional[RunConfig] = None,
@@ -73,7 +73,7 @@ class StatsforecastTrainer(BaseTrainer):
         # self.cv_params = cv_params or {"n_windows": 5}
         self.parallelize_cv = parallelize_cv
         self.set_estimator_cpus = set_estimator_cpus
-        self.return_train_score_cv = return_train_score_cv
+        self.return_train_forecasts_cv = return_train_forecasts_cv
         super().__init__(
             scaling_config=scaling_config,
             run_config=run_config,
@@ -227,7 +227,10 @@ class StatsforecastTrainer(BaseTrainer):
 
         start_time = time.time()
         forecasts_cv = statsforecast.cross_validation(
-            h=self.test_size, n_windows=self.n_splits, step_size=self.test_size
+            h=self.test_size,
+            n_windows=self.n_splits,
+            step_size=self.test_size,
+            fitted=self.return_train_forecasts_cv,
         )
         cv_time = time.time() - start_time
 
@@ -239,4 +242,17 @@ class StatsforecastTrainer(BaseTrainer):
             **cv_results,
             "cv_time": cv_time,
         }
-        session.report(results)
+        checkpoint_dict = {
+            "cross_validation_df": forecasts_cv,
+        }
+
+        # Update with metrics/predictions on training data if
+        # `self.return_train_forecasts_cv`
+        if self.return_train_forecasts_cv:
+            train_forecasts_cv = statsforecast.cross_validation_fitted_values()
+            train_results = self._compute_metrics_and_aggregate(train_forecasts_cv)
+            results["train"] = train_results
+            checkpoint_dict["cross_validation_fitted_values_df"] = train_forecasts_cv
+
+        checkpoint = Checkpoint.from_dict(checkpoint_dict)
+        session.report(results, checkpoint=checkpoint)
