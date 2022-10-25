@@ -1165,7 +1165,11 @@ class PopulationBasedTestingSuite(unittest.TestCase):
         Trial 2: start ----------------------> score=150 -------> score=75
         """
         pbt, runner = self.basicSetup(
-            num_trials=3, perturbation_interval=1, quantile_fraction=0.25, step_once=False, synch=False
+            num_trials=3,
+            perturbation_interval=1,
+            quantile_fraction=0.25,
+            step_once=False,
+            synch=False,
         )
         trials = runner.get_trials()
 
@@ -1177,9 +1181,13 @@ class PopulationBasedTestingSuite(unittest.TestCase):
             pbt, runner, trials[0], result(1, 50), TrialScheduler.CONTINUE
         )
         # Trial 1 result comes second with score=100 (upper quantile)
-        self.on_trial_result(pbt, runner, trials[1], result(1, 50), TrialScheduler.CONTINUE)
+        self.on_trial_result(
+            pbt, runner, trials[1], result(1, 50), TrialScheduler.CONTINUE
+        )
         # Trial 2 result comes last with score=150
-        self.on_trial_result(pbt, runner, trials[2], result(1, 150), TrialScheduler.CONTINUE)
+        self.on_trial_result(
+            pbt, runner, trials[2], result(1, 150), TrialScheduler.CONTINUE
+        )
 
         # Quantiles are now: upper = [trial_2], middle = [trial_1], lower = [trial_0]
         lower, upper = pbt._quantiles()
@@ -1187,11 +1195,15 @@ class PopulationBasedTestingSuite(unittest.TestCase):
         assert upper == [trials[2]] and middle == [trials[1]] and lower == [trials[0]]
 
         # Trial 0 comes in with the same score=100 and has been downgraded
-        self.on_trial_result(pbt, runner, trials[1], result(2, 100), TrialScheduler.CONTINUE)
+        self.on_trial_result(
+            pbt, runner, trials[1], result(2, 100), TrialScheduler.CONTINUE
+        )
 
         # A new Trial 2 result comes with score=75
         # Quantiles are now: upper = [trial_1], middle = [trial_2], lower = [trial_0]
-        self.on_trial_result(pbt, runner, trials[2], result(2, 75), TrialScheduler.CONTINUE)
+        self.on_trial_result(
+            pbt, runner, trials[2], result(2, 75), TrialScheduler.CONTINUE
+        )
         lower, upper = pbt._quantiles()
         middle = get_middle_quantile(trials, lower, upper)
         assert upper == [trials[1]] and middle == [trials[2]] and lower == [trials[0]]
