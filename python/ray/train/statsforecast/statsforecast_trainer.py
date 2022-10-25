@@ -29,7 +29,7 @@ class StatsforecastTrainer(BaseTrainer):
         *,
         model_cls_and_params=None,
         model_cls=None,
-        model_params=None,
+        # model_params=None,
         datasets: Dict[str, GenDataset] = None,
         freq: str = "D",
         metrics: Optional[Dict[str, Any]] = None,
@@ -42,9 +42,9 @@ class StatsforecastTrainer(BaseTrainer):
         scaling_config: Optional[ScalingConfig] = None,
         run_config: Optional[RunConfig] = None,
         preprocessor: Optional["Preprocessor"] = None,
-        **fit_params,
+        **model_params,
     ):
-        if fit_params.pop("resume_from_checkpoint", None):
+        if model_params.pop("resume_from_checkpoint", None):
             raise AttributeError(
                 "StatsforecastTrainer does not support resuming from checkpoints. "
                 "Remove the `resume_from_checkpoint` argument."
@@ -67,7 +67,7 @@ class StatsforecastTrainer(BaseTrainer):
             "mae": mean_absolute_error,
         }
         self.params = params or {}
-        self.fit_params = fit_params
+        # self.fit_params = fit_params
         self.n_splits = n_splits
         self.test_size = test_size
         # self.cv_params = cv_params or {"n_windows": 5}
