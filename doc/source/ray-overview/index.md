@@ -34,20 +34,59 @@ To use Ray in Java, first add the [ray-api](https://mvnrepository.com/artifact/i
 Want to build Ray from source or with docker? Need more details? 
 Check out our detailed [installation guide](installation.rst).
 
+## Starting your first local Ray cluster
+
+```{raw} html
+
+<div class="termynal" data-termynal>
+    <span data-ty="input">pip install ray</span>
+    <span data-ty="progress"></span>
+    <span data-ty>Successfully installed ray</span>
+    <span data-ty="input">python</span>
+    <span data-ty="input" data-ty-prompt=">>>">import ray; ray.init()</span>
+    <span data-ty>
+        ... INFO worker.py:1509 -- Started a local Ray instance.
+        View the dashboard at 127.0.0.1:8265
+        ...
+    </span>
+</div>
+
+```
+
 ## Ray AI Runtime Quick Start
+
+To use Ray's AI Runtime install Ray with the optional extra `air` packages:
+
+```
+pip install "ray[air]"
+```
 
 `````{dropdown} Efficiently process your data into features.
 
-Preprocess your data with a ``Preprocessor``.
+Load data into a ``Dataset``.
 
 ```{literalinclude} ../ray-air/examples/xgboost_starter.py
     :language: python
     :start-after: __air_generic_preprocess_start__
     :end-before: __air_generic_preprocess_end__
 ```
+
+Preprocess your data with a ``Preprocessor``.
+
+```{literalinclude} ../ray-air/examples/xgboost_starter.py
+    :language: python
+    :start-after: __air_xgb_preprocess_start__
+    :end-before: __air_xgb_preprocess_end__
+```
 `````
 
 `````{dropdown} Scale out model training.
+
+This example will use XGBoost to train a Machine Learning model, so, install Ray's wrapper library `xgboost_ray`:
+
+```
+pip install xgboost_ray
+```
 
 Train a model with an ``XGBoostTrainer``.
 
@@ -55,6 +94,25 @@ Train a model with an ``XGBoostTrainer``.
     :language: python
     :start-after: __air_xgb_train_start__
     :end-before: __air_xgb_train_end__
+```
+`````
+
+`````{dropdown} Tune the hyperparameters to find the best model with Ray Tune.
+
+Configure the parameters for tuning:
+
+```{literalinclude} ../ray-air/examples/xgboost_starter.py
+    :language: python
+    :start-after: __air_xgb_tuner_start__
+    :end-before: __air_xgb_tuner_end__
+```
+
+Run hyperparameter tuning with Ray Tune to find the best model:
+
+```{literalinclude} ../ray-air/examples/xgboost_starter.py
+    :language: python
+    :start-after: __air_tune_generic_end__
+    :end-before: __air_tune_generic_end__
 ```
 `````
 
