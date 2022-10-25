@@ -125,6 +125,7 @@ class StatsforecastTrainer(BaseTrainer):
 
         cv_aggregates = {}
         for unique_id in unique_ids:
+            prefix = f"{unique_id}/" if len(unique_ids) > 1 else ""
             # Calculate metrics separately for each series
             forecasts_for_id = forecasts_cv[forecasts_cv.index == unique_id]
             cutoff_values = forecasts_for_id["cutoff"].unique()
@@ -143,18 +144,16 @@ class StatsforecastTrainer(BaseTrainer):
 
             for metric_name, metric_vals in cv_metrics.items():
                 try:
-                    cv_aggregates[f"{unique_id}/{metric_name}_mean"] = np.nanmean(
+                    cv_aggregates[f"{prefix}{metric_name}_mean"] = np.nanmean(
                         metric_vals
                     )
-                    cv_aggregates[f"{unique_id}/{metric_name}_std"] = np.nanstd(
-                        metric_vals
-                    )
+                    cv_aggregates[f"{prefix}{metric_name}_std"] = np.nanstd(metric_vals)
                 except Exception as e:
                     logger.warning(
                         f"Couldn't calculate aggregate metrics for CV folds! {e}"
                     )
-                    cv_aggregates[f"{unique_id}/{metric_name}_mean"] = np.nan
-                    cv_aggregates[f"{unique_id}/{metric_name}_std"] = np.nan
+                    cv_aggregates[f"{prefix}{metric_name}_mean"] = np.nan
+                    cv_aggregates[f"{prefix}{metric_name}_std"] = np.nan
 
         return {
             "unique_ids": list(unique_ids),
