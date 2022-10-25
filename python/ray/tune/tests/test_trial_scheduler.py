@@ -1216,6 +1216,47 @@ class PopulationBasedTestingSuite(unittest.TestCase):
             pbt._num_perturbations == perturbs_before + 1
         ), "Trial 0 should have exploited and perturbed trial 1's config"
 
+    def testQuantileCalculation(self):
+        """Tests that quantiles are calculated properly."""
+        pbt, runner = self.basicSetup(
+            num_trials=4,
+            perturbation_interval=1,
+            step_once=False,
+            synch=False,
+            quantile_fraction=0.25,
+        )
+        trials = runner.get_trials()
+
+        # Trial 0 result comes first with score=100 (upper-quantile by default)
+        self.on_trial_result(
+            pbt, runner, trials[0], result(1, 100), TrialScheduler.CONTINUE
+        )
+        lower, upper = pbt._quantiles()
+        assert not lower and trials[0] in upper
+
+        # Trial 1 result comes with score=50  -> low = [1], mid = [], high = [0]
+        # Trial 1 should try to exploit Trial 0, causing Trial 1 to pause
+        # (returns NOOP as the scheduler decision since already paused manually)
+        self.on_trial_result(pbt, runner, trials[1], result(1, 50), TrialScheduler.NOOP)
+        lower, upper = pbt._quantiles()
+        assert trials[1] in lower and trials[0] in upper
+
+        # Trial 2 result comes with score=150 -> low = [1], mid = [0], high = [2]
+        self.on_trial_result(
+            pbt, runner, trials[2], result(1, 150), TrialScheduler.PAUSE
+        )
+        lower, upper = pbt._quantiles()
+        assert trials[1] in lower and trials[2] in upper and trials[0] not in upper
+
+        # Trial 3 result comes with score=200 -> low = [1], mid = [0, 2], high = [3]
+        self.on_trial_result(
+            pbt, runner, trials[3], result(1, 200), TrialScheduler.PAUSE
+        )
+        lower, upper = pbt._quantiles()
+        assert trials[1] in lower and trials[3] in upper and trials[2] not in upper
+
+        assert pbt._num_perturbations == 1
+
     def testPerturbWithoutResample(self):
         pbt, runner = self.basicSetup(resample_prob=0.0)
         trials = runner.get_trials()
