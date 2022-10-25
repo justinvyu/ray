@@ -619,13 +619,16 @@ class PopulationBasedTraining(FIFOScheduler):
         upper_quantile: List[Trial],
         lower_quantile: List[Trial],
     ):
-        """Checkpoint if in upper quantile, exploits if in lower."""
+        """Checkpoint the trial, and then exploit another trial if in lower."""
+        # TODO: synch PBT should only set upper-quantile checkpoints
+        # asynch PBT should always checkpoint and not set to None
         trial_executor = trial_runner.trial_executor
         state = self._trial_state[trial]
-        # if trial in upper_quantile:
+        if trial in upper_quantile:
+            logger.debug("Trial {} is in upper quantile".format(trial))
+
         # The trial last result is only updated after the scheduler
         # callback. So, we override with the current result.
-        logger.debug("Trial {} is in upper quantile".format(trial))
         logger.debug("Checkpointing {}".format(trial))
         if trial.status == Trial.PAUSED:
             # Paused trial will always have an in-memory checkpoint.
@@ -862,6 +865,8 @@ class PopulationBasedTraining(FIFOScheduler):
 
         self._num_perturbations += 1
         # Transfer over the last perturbation time as well
+        # TODO: does last_checkpoint need to be set to checkpoint_to_exploit?
+        # TODO: what about last_score?
         trial_state.last_perturbation_time = new_state.last_perturbation_time
         trial_state.last_train_time = new_state.last_train_time
 
@@ -879,24 +884,23 @@ class PopulationBasedTraining(FIFOScheduler):
                 trials.append(trial)
         trials.sort(key=lambda t: self._trial_state[t].last_score)
 
-        if len(trials) < 1:
+        if not trials or len(self._trial_state) == 1:
+            # Return empty quantiles because:
+            # 1. No trials have reported a score yet, or
+            # 2. Single trial PBT never needs to exploit
             return [], []
         elif len(trials) == 1:
-            if len(self._trial_state) > 1:
-                # If there are other trials, and none of them have scores yet
-                # i.e. this is the first trial that `on_trial_result` is called
-                # Then the trial is in the upper quantile by default
-                return [], [trials[0]]
-            else:
-                # Single trial PBT never needs to exploit
-                return [], []
+            # If none of the other trials have reported scores yet,
+            # i.e. this is the first trial that `on_trial_result` is called,
+            # then the trial is in the upper quantile by default
+            return [], [trials[0]]
         else:
             num_trials_in_quantile = int(
                 math.ceil(len(trials) * self._quantile_fraction)
             )
             if num_trials_in_quantile > len(trials) / 2:
                 num_trials_in_quantile = int(math.floor(len(trials) / 2))
-            return (trials[:num_trials_in_quantile], trials[-num_trials_in_quantile:])
+            return trials[:num_trials_in_quantile], trials[-num_trials_in_quantile:]
 
     def choose_trial_to_run(
         self, trial_runner: "trial_runner.TrialRunner"
