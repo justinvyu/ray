@@ -115,9 +115,8 @@ def train_func(config):
         ]
     )
 
-    data_dir = config.get("data_dir", os.path.expanduser("~/data"))
-    os.makedirs(data_dir, exist_ok=True)
-    with FileLock(os.path.join(data_dir, ".ray.lock")):
+    with FileLock(os.path.expanduser("~/.ray.lock")):
+        data_dir = os.path.expanduser(config.get("data_dir", "~/data"))
         train_dataset = CIFAR10(
             root=data_dir, train=True, download=True, transform=transform_train
         )
