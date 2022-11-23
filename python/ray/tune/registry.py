@@ -240,3 +240,12 @@ class _ParameterRegistry:
             else:
                 self.references[k] = ray.put(v)
         self.to_flush.clear()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Don't serialize the data if it hasn't been flushed to object store
+        state["to_flush"] = {}
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
