@@ -263,6 +263,9 @@ main/en/main_classes/trainer#transformers.TrainingArguments>`__.
                 "Update on all nodes with `pip install -U 'transformers>=4.19.0'`."
             )
 
+        self._trainer_init_per_worker = trainer_init_per_worker
+        self._trainer_init_config = trainer_init_config
+
         self._validate_trainer_init_per_worker(
             trainer_init_per_worker, "trainer_init_per_worker"
         )
@@ -322,14 +325,14 @@ main/en/main_classes/trainer#transformers.TrainingArguments>`__.
             scaling_config=scaling_config,
         )
 
-        if trainer_init_per_worker:
-            trainer._train_loop_config[TRAINER_INIT_FN_KEY] = trainer_init_per_worker
-
-        if trainer_init_config:
-            assert set(trainer._train_loop_config.keys()) - {
-                TRAINER_INIT_FN_KEY
-            } == set(trainer_init_config.keys())
-            trainer._train_loop_config.update(trainer_init_config)
+        trainer._validate_and_update(
+            "_trainer_init_per_worker", trainer_init_per_worker
+        )
+        trainer._validate_and_update("_trainer_init_config", trainer_init_config)
+        trainer._train_loop_config = cls._create_trainer_init_config(
+            trainer._trainer_init_per_worker,
+            trainer._trainer_init_config,
+        )
 
         return trainer
 

@@ -1,8 +1,12 @@
 import inspect
-from typing import Callable, Dict, Sequence, Union
+from typing import Callable, Dict, List, Sequence, Type, Union
 
 from ray import ObjectRef
 from ray.actor import ActorHandle
+
+import logging
+
+logger = logging.getLogger(__file__)
 
 
 def _inspect_func_for_types(base_obj, types):
@@ -33,20 +37,17 @@ def _inspect_func_for_types(base_obj, types):
     return found
 
 
-def contains_object_refs(base_obj: Union[Dict, Sequence, Callable]) -> bool:
+def contains_object_types(
+    base_obj: Union[Dict, Sequence, Callable], types: List[Type]
+) -> bool:
     if base_obj is None:
         return False
 
-    object_store_types = (ObjectRef, ActorHandle)
-
     if isinstance(base_obj, dict):
-        return any(isinstance(v, object_store_types) for v in base_obj.values())
+        return any(contains_object_types(v, types) for v in base_obj.values())
     elif isinstance(base_obj, (list, tuple)):
-        return any(isinstance(v, object_store_types) for v in base_obj)
+        return any(contains_object_types(v, types) for v in base_obj)
     elif inspect.isfunction(base_obj):
-        return _inspect_func_for_types(base_obj, object_store_types)
+        return _inspect_func_for_types(base_obj, types)
     else:
-        raise NotImplementedError(
-            f"Checking for object references in type {type(base_obj)} "
-            "is not implemented."
-        )
+        return isinstance(base_obj, types)

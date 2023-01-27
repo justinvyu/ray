@@ -19,6 +19,8 @@ from ray.train.constants import TRAIN_DATASET_KEY
 from ray.util import PublicAPI
 from ray.util.annotations import DeveloperAPI
 from ray._private.dict import merge_dicts
+from ray.util.inspect_objects import contains_object_types
+
 
 if TYPE_CHECKING:
     from ray.data import Dataset
@@ -193,12 +195,7 @@ class BaseTrainer(abc.ABC):
         assert type(trainer) == cls
         trainer._restore_path = path
 
-        if trainer.datasets and not datasets:
-            raise ValueError()
-        original_datasets = trainer.datasets or {}
-        datasets = datasets or {}
-        assert set(original_datasets.keys()) == set(datasets.keys())
-        trainer.datasets = datasets
+        trainer._validate_and_update("datasets", datasets)
 
         # If no preprocessor is re-specified, then it will be set to None
         # here and loaded from the latest checkpoint
@@ -208,6 +205,56 @@ class BaseTrainer(abc.ABC):
             trainer.scaling_config = scaling_config
 
         return trainer
+
+    def _validate_and_update(self, attr: str, value: Optional[Any]) -> bool:
+        """A utility method to validate and update an attribute during restoration.
+
+        This method checks if the existing `self.attr` contains any objects
+        that are not serializable across clusters.
+
+        Turn this validation off by setting the `TRAIN_DISABLE_RESTORE_VALIDATION`
+        environment variable to "1".
+
+        Args:
+            attr: The name of the attribute to be updated.
+            value: The value to update with. If None, then nothing will be updated.
+
+        Raises:
+            ValueError: if the old value needs to be updated, but no new value
+                is passed in.
+
+        Returns:
+            updated: Whether or not the attribute got updated.
+        """
+        if os.environ.get("TRAIN_DISABLE_RESTORE_VALIDATION", "0") == "1":
+            if value:
+                setattr(self, attr, value)
+                return True
+            return False
+
+        current_val = getattr(self, attr, None)
+
+        if current_val is None:
+            assert not value
+            return False
+
+        types_with_obj_refs = (ray.ObjectRef, ray.actor.ActorHandle, ray.data.Dataset)
+        should_respecify = contains_object_types(current_val, types_with_obj_refs)
+        if should_respecify and not value:
+            raise ValueError()
+
+        if not value:
+            return False
+
+        assert type(current_val) == type(value)
+        if isinstance(value, dict):
+            assert set(current_val.keys()) == set(value.keys()), (
+                list(current_val.keys()),
+                list(value.keys()),
+            )
+
+        setattr(self, attr, value)
+        return True
 
     def __repr__(self):
         # A dictionary that maps parameters to their default values.
