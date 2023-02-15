@@ -39,6 +39,9 @@ transformers
 # Train
 mxnet==1.8.0.post0
 
+# RLlib
+ray[rllib]
+
 # Ray libraries
 git+https://github.com/ray-project/tune-sklearn@master#tune-sklearn
 git+https://github.com/ray-project/xgboost_ray@master#egg=xgboost_ray
