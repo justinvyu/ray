@@ -1,4 +1,5 @@
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional, Tuple, Union
 
@@ -143,6 +144,8 @@ class _ExperimentCheckpointManager:
         )
         self._should_force_cloud_sync = False
 
+        self._driver_artifacts_to_sync = set()
+
     @property
     def auto_checkpoint_enabled(self):
         return self._auto_checkpoint_enabled
@@ -230,7 +233,11 @@ class _ExperimentCheckpointManager:
         if bool(self._sync_config.upload_dir):
             # If an upload dir is given, trainable actors upload checkpoints
             # themselves. Then the driver does not need to sync checkpoints.
-            exclude = ["*/checkpoint_*"]
+            # exclude = ["*/checkpoint_*"]
+            # Exclude the entire trial directory
+            exclude = ["*/*"]
+            # Except for driver artifacts
+            include = list(self._driver_artifacts_to_sync)
         else:
             # Otherwise, we sync the full trial dir.
             exclude = None
@@ -465,3 +472,20 @@ class _ExperimentCheckpointManager:
                     "in remote or local directory."
                 )
         return resume_config
+
+    @contextmanager
+    def track_driver_artifacts(self, dir_to_track: str):
+        before = set(os.listdir(dir_to_track))
+        yield
+        after = set(os.listdir(dir_to_track))
+
+        # <experiment_dir>/<trial_dir>/<artifact_file> -> <trial_dir>
+        rel_path = os.path.relpath(dir_to_track, self._local_checkpoint_dir)
+        num_dirs_between = len(rel_path.split(os.sep)) + 1
+        # Include "*/<artifact_file>" from experiment sync.
+        self._driver_artifacts_to_sync.update(
+            {
+                os.sep.join(["*"] * num_dirs_between + [filename])
+                for filename in after - before
+            }
+        )
