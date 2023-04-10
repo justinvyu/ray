@@ -129,7 +129,7 @@ class _StatusReporter:
         result_queue: queue.Queue,
         continue_semaphore: threading.Semaphore,
         end_event: threading.Event,
-        training_iteration_func: Callable[[], int],
+        checkpoint_step_fn: Callable[[], int],
         experiment_name: Optional[str] = None,
         trial_name: Optional[str] = None,
         trial_id: Optional[str] = None,
@@ -140,7 +140,7 @@ class _StatusReporter:
         self._last_report_time = None
         self._continue_semaphore = continue_semaphore
         self._end_event = end_event
-        self._get_training_iteration = training_iteration_func
+        self._checkpoint_step_fn = checkpoint_step_fn
         self._experiment_name = experiment_name
         self._trial_name = trial_name
         self._trial_id = trial_id
@@ -240,8 +240,7 @@ class _StatusReporter:
         # TODO(xwjiang): Tons of optimizations.
         self._air_session_has_reported = True
         if checkpoint:
-            training_iteration = self._get_training_iteration()
-            checkpoint_dir = self.make_checkpoint_dir(step=training_iteration)
+            checkpoint_dir = self.make_checkpoint_dir(step=self._checkpoint_step_fn())
             self.set_checkpoint(checkpoint_dir)
             checkpoint.to_directory(checkpoint_dir)
             # TODO(krfricke): Remove this once support is added in Checkpoint.
@@ -309,7 +308,12 @@ class FunctionTrainable(Trainable):
             self._results_queue,
             self._continue_semaphore,
             self._end_event,
-            training_iteration_func=lambda: self.training_iteration,
+            # NOTE: The checkpoint index associated with each `session.report`
+            # is one more than the current Trainable iteration.
+            # This is because for function trainables, checkpoint reporting &
+            # saving to disk happens DURING step (as part of the user's training loop),
+            # so the underlying iteration has not yet increased.
+            checkpoint_step_fn=lambda: self.training_iteration + 1,
             experiment_name=(
                 self._trial_info.experiment_name if self._trial_info else None
             ),
