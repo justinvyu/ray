@@ -404,3 +404,12 @@ def get_dataset_shard(
             "that is passed into `DataParallelTrainer`."
         )
     return session.get_dataset_shard(dataset_name)
+
+
+@PublicAPI(stability="beta")
+@_warn_session_misuse()
+def get_training_iteration() -> int:
+    """TODO"""
+    from ray.tune.trainable.session import _session_v2 as tune_session
+
+    return tune_session.training_iteration

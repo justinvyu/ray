@@ -84,6 +84,10 @@ class Session(abc.ABC):
         """Trial-level log directory for the corresponding trial."""
         raise NotImplementedError
 
+    @property
+    def training_iteration(self) -> int:
+        raise NotImplementedError
+
 
 def _get_session(warn: bool = True) -> Optional[Session]:
     from ray.train._internal.session import _session_v2 as train_session

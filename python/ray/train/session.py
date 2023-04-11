@@ -54,6 +54,10 @@ class _TrainSessionImpl(Session):
         return self._session.trial_info.logdir
 
     @property
+    def training_iteration(self) -> int:
+        return self._session.trial_info.training_iteration_fn()
+
+    @property
     def world_size(self) -> int:
         return self._session.world_size
 

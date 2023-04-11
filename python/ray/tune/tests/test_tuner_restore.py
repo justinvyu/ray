@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shutil
 import time
+from typing import List, Tuple
 import unittest
 
 import pytest
@@ -66,6 +67,22 @@ def clear_memory_filesys():
 
 def _dummy_train_fn(config):
     return 1
+
+
+def _get_checkpoint_idx_from_dirname(checkpoint_dirname: str) -> int:
+    return int(checkpoint_dirname.split("_")[-1])
+
+
+def _get_checkpoints(experiment_dir: str) -> Tuple[List[str], List[Checkpoint]]:
+    checkpoint_dirs = [
+        path for path in os.listdir(experiment_dir) if path.startswith("checkpoint_")
+    ]
+    sorted_checkpoint_dirs = sorted(checkpoint_dirs)
+    checkpoints = [
+        Checkpoint.from_directory(os.path.join(experiment_dir, d))
+        for d in sorted_checkpoint_dirs
+    ]
+    return sorted_checkpoint_dirs, checkpoints
 
 
 def _dummy_train_fn_with_report(config):
@@ -923,19 +940,6 @@ def test_checkpoints_saved_after_resume(ray_start_2_cpus, tmp_path, use_air_trai
     - Checkpoint 000000 should be deleted.
     """
 
-    def get_checkpoints(experiment_dir):
-        checkpoint_dirs = [
-            path
-            for path in os.listdir(experiment_dir)
-            if path.startswith("checkpoint_")
-        ]
-        sorted_checkpoint_dirs = sorted(checkpoint_dirs)
-        checkpoints = [
-            Checkpoint.from_directory(os.path.join(experiment_dir, d))
-            for d in sorted_checkpoint_dirs
-        ]
-        return sorted_checkpoint_dirs, checkpoints
-
     fail_marker = tmp_path / "fail_marker"
     fail_marker.write_text("", encoding="utf-8")
 
@@ -971,8 +975,11 @@ def test_checkpoints_saved_after_resume(ray_start_2_cpus, tmp_path, use_air_trai
     ), f"Should be at 2 iters before erroring, got {training_iteration}"
 
     # Initial run saves the first 2 checkpoints
-    checkpoint_dirs, checkpoints = get_checkpoints(results[0].log_dir)
-    assert checkpoint_dirs == ["checkpoint_000000", "checkpoint_000001"]
+    checkpoint_dirs, checkpoints = _get_checkpoints(results[0].log_dir)
+    checkpoint_idxs = [
+        _get_checkpoint_idx_from_dirname(ckpt_dir) for ckpt_dir in checkpoint_dirs
+    ]
+    assert sorted(checkpoint_idxs) == [1, 2]
     assert [ckpt.to_dict()["it"] for ckpt in checkpoints] == [1, 2]
 
     fail_marker.unlink()
@@ -987,8 +994,11 @@ def test_checkpoints_saved_after_resume(ray_start_2_cpus, tmp_path, use_air_trai
     assert training_iteration == 5
 
     # Restored run saves the 3 more checkpoints, and first checkpoint should be deleted
-    checkpoint_dirs, checkpoints = get_checkpoints(results[0].log_dir)
-    assert checkpoint_dirs == [f"checkpoint_00000{i}" for i in range(1, 5)]
+    checkpoint_dirs, checkpoints = _get_checkpoints(results[0].log_dir)
+    checkpoint_idxs = [
+        _get_checkpoint_idx_from_dirname(ckpt_dir) for ckpt_dir in checkpoint_dirs
+    ]
+    assert sorted(checkpoint_idxs) == [2, 3, 4, 5]
     assert [ckpt.to_dict()["it"] for ckpt in checkpoints] == [2, 3, 4, 5]
 
 

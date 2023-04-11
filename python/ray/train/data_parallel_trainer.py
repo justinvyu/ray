@@ -400,6 +400,7 @@ class DataParallelTrainer(BaseTrainer):
             resources=session.get_trial_resources(),
             logdir=session.get_trial_dir(),
             driver_ip=ray.util.get_node_ip_address(),
+            training_iteration_fn=session.get_training_iteration,
             experiment_name=session.get_experiment_name(),
         )
 

@@ -49,6 +49,7 @@ class TrialInfo:
     resources: Dict[str, float]
     logdir: str
     driver_ip: str
+    training_iteration_fn: Callable[[], int]
     experiment_name: Optional[str] = None
 
 

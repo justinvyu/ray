@@ -70,6 +70,10 @@ class _TuneSessionImpl(Session):
     def trial_dir(self) -> str:
         return self._status_reporter.logdir
 
+    @property
+    def training_iteration(self) -> int:
+        return self._status_reporter.training_iteration
+
 
 @Deprecated(message=_deprecation_msg)
 def is_session_enabled() -> bool:

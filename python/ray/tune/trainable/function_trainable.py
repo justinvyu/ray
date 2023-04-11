@@ -129,7 +129,7 @@ class _StatusReporter:
         result_queue: queue.Queue,
         continue_semaphore: threading.Semaphore,
         end_event: threading.Event,
-        checkpoint_step_fn: Callable[[], int],
+        training_iteration_fn: Callable[[], int],
         experiment_name: Optional[str] = None,
         trial_name: Optional[str] = None,
         trial_id: Optional[str] = None,
@@ -140,7 +140,7 @@ class _StatusReporter:
         self._last_report_time = None
         self._continue_semaphore = continue_semaphore
         self._end_event = end_event
-        self._checkpoint_step_fn = checkpoint_step_fn
+        self._training_iteration_fn = training_iteration_fn
         self._experiment_name = experiment_name
         self._trial_name = trial_name
         self._trial_id = trial_id
@@ -240,7 +240,9 @@ class _StatusReporter:
         # TODO(xwjiang): Tons of optimizations.
         self._air_session_has_reported = True
         if checkpoint:
-            checkpoint_dir = self.make_checkpoint_dir(step=self._checkpoint_step_fn())
+            checkpoint_dir = self.make_checkpoint_dir(
+                step=self._training_iteration_fn()
+            )
             self.set_checkpoint(checkpoint_dir)
             checkpoint.to_directory(checkpoint_dir)
             # TODO(krfricke): Remove this once support is added in Checkpoint.
@@ -278,6 +280,10 @@ class _StatusReporter:
         """Resources assigned to the trial of this Trainable."""
         return self._trial_resources
 
+    @property
+    def training_iteration(self):
+        return self._training_iteration_fn()
+
 
 @DeveloperAPI
 class FunctionTrainable(Trainable):
@@ -313,7 +319,7 @@ class FunctionTrainable(Trainable):
             # This is because for function trainables, checkpoint reporting &
             # saving to disk happens DURING step (as part of the user's training loop),
             # so the underlying iteration has not yet increased.
-            checkpoint_step_fn=lambda: self.training_iteration + 1,
+            training_iteration_fn=lambda: self.training_iteration + 1,
             experiment_name=(
                 self._trial_info.experiment_name if self._trial_info else None
             ),
