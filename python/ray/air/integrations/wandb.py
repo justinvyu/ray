@@ -8,7 +8,7 @@ import numpy as np
 from numbers import Number
 
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import ray
 from ray import logger
@@ -378,6 +378,7 @@ class _WandbLoggingActor:
         exclude: List[str],
         to_config: List[str],
         *args,
+        custom_init_fn: Optional[Callable[[Run], None]] = None,
         **kwargs,
     ):
         import wandb
@@ -389,6 +390,7 @@ class _WandbLoggingActor:
         self._exclude = set(exclude)
         self._to_config = set(to_config)
         self.args = args
+        self._custom_init_fn = custom_init_fn
         self.kwargs = kwargs
 
         self._trial_name = self.kwargs.get("name", "unknown")
@@ -398,6 +400,10 @@ class _WandbLoggingActor:
         # Since we're running in a separate process already, use threads.
         os.environ["WANDB_START_METHOD"] = "thread"
         run = self._wandb.init(*self.args, **self.kwargs)
+
+        if self._custom_init_fn:
+            self._custom_init_fn(self._wandb)
+
         run.config.trial_log_path = self._logdir
 
         _run_wandb_process_run_info_hook(run)
@@ -546,6 +552,7 @@ class WandbLoggerCallback(LoggerCallback):
         upload_checkpoints: bool = False,
         save_checkpoints: bool = False,
         upload_timeout: int = DEFAULT_SYNC_TIMEOUT,
+        custom_init_fn: Optional[Callable[[Run], None]] = None,
         **kwargs,
     ):
         if not wandb:
@@ -568,6 +575,7 @@ class WandbLoggerCallback(LoggerCallback):
         self.log_config = log_config
         self.upload_checkpoints = upload_checkpoints
         self._upload_timeout = upload_timeout
+        self._custom_init_fn = custom_init_fn
         self.kwargs = kwargs
 
         self._remote_logger_class = None
@@ -660,6 +668,7 @@ class WandbLoggerCallback(LoggerCallback):
             queue=self._trial_queues[trial],
             exclude=exclude_results,
             to_config=self.AUTO_CONFIG_KEYS,
+            custom_init_fn=self._custom_init_fn,
             **wandb_init_kwargs,
         )
         logging_future = self._trial_logging_actors[trial].run.remote()
@@ -708,6 +717,8 @@ class WandbLoggerCallback(LoggerCallback):
         futures = list(self._trial_logging_futures.values())
         done, remaining = ray.wait(futures, num_returns=len(futures), timeout=timeout)
         for ready_future in done:
+            # Calling ray.get will raise any errors encountered by the actor.
+            ray.get(ready_future)
             finished_trial = self._logging_future_to_trial.pop(ready_future)
             self._cleanup_logging_actor(finished_trial)
 
