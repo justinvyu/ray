@@ -5,6 +5,7 @@ import warnings
 from collections import defaultdict
 from dataclasses import _MISSING_TYPE, dataclass, fields
 from pathlib import Path
+import pyarrow.fs
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -750,6 +751,7 @@ class RunConfig:
 
     name: Optional[str] = None
     storage_path: Optional[str] = None
+    storage_fileystem: Optional[pyarrow.fs.FileSystem] = None
     callbacks: Optional[List["Callback"]] = None
     stop: Optional[Union[Mapping, "Stopper", Callable[[str, Mapping], bool]]] = None
     failure_config: Optional[FailureConfig] = None
