@@ -1,4 +1,5 @@
 import dataclasses
+import os
 from typing import Optional
 
 import pyarrow.fs
@@ -43,13 +44,13 @@ class StorageContext:
         self._check_validation_file()
 
     def _create_validation_file(self):
-        valid_file = self.storage_prefix + "/_valid"
+        valid_file = os.path.join(self.storage_path_on_filesystem, "_valid")
         self.storage_filesystem.create_dir(self.storage_prefix)
         with self.storage_filesystem.open_output_stream(valid_file):
             pass
 
     def _check_validation_file(self):
-        valid_file = self.storage_prefix + "/_valid"
+        valid_file = os.path.join(self.storage_path_on_filesystem, "/_valid")
         valid = self.storage_filesystem.get_file_info([valid_file])[0]
         if valid.type == pyarrow.fs.FileType.NotFound:
             raise RuntimeError(
