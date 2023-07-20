@@ -751,7 +751,7 @@ class RunConfig:
 
     name: Optional[str] = None
     storage_path: Optional[str] = None
-    storage_fileystem: Optional[pyarrow.fs.FileSystem] = None
+    storage_filesystem: Optional[pyarrow.fs.FileSystem] = None
     callbacks: Optional[List["Callback"]] = None
     stop: Optional[Union[Mapping, "Stopper", Callable[[str, Mapping], bool]]] = None
     failure_config: Optional[FailureConfig] = None

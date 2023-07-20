@@ -9,30 +9,76 @@ from ray.train import RunConfig
 from ray.tune.syncer import Syncer, SyncConfig, _DefaultSyncer
 from ray.tune.result import _get_defaults_results_dir
 
+# Whether to enable the new simple persistence mode.
+USE_STORAGE_CONTEXT = bool(int(os.environ.get("TUNE_USE_STORAGE_CONTEXT", "1")))
+
 
 class StorageContext:
-    def __init__(self, run_config: RunConfig):
-        self.storage_path: str = run_config.storage_path
-        self.storage_cache_dir: str = _get_defaults_results_dir()
-        self.experiment_dir_name: str = run_config.name
-        self.sync_config: SyncConfig = dataclasses.replace(run_config.sync_config)
+    """Shared context that holds all paths and storage utilities, passed along from
+    the driver to workers.
 
-        if run_config.storage_filesystem:
+    Example:
+        storage_path = "s3://bucket/results"
+        storage_filesystem = S3FileSystem (auto-resolved)
+        storage_cache_path = "~/ray_results"
+        storage_fs_path = "bucket/results"
+
+        experiment_dir_name = "exp_name"
+        # experiment_path = "s3://bucket/results/exp_name"
+        experiment_fs_path = "bucket/results/exp_name"  # Use this path with pyarrow
+        experiment_cache_path = "~/ray_results/exp_name"
+
+        # Only set on workers.
+        trial_dir_name = "trial_dir"
+        # trial_path = "s3://bucket/results/exp_name/trial_dir"
+        trial_fs_path = "bucket/results/exp_name/trial_dir"
+        # trial_cache_path = "~/ray_results/exp_name/trial_dir"
+
+    Internal Usage:
+        construct_checkpoint_fs_path("checkpoint_000001")
+        -> "bucket/results/exp_name/trial_dir/checkpoint_000001"
+
+        pyarrow.fs.copy_files(
+            local_dir,
+            os.path.join(storage.trial_fs_path, "subdir"),
+            destination_filesystem=storage.filesystem
+        )
+
+    """
+
+    def __init__(
+        self,
+        # TODO(justinvyu): would be nice if this could just take in a RunConfig
+        storage_path: str,
+        sync_config: SyncConfig,
+        experiment_dir_name: str,
+        storage_filesystem: Optional[pyarrow.fs.FileSystem] = None,
+        trial_dir_name: Optional[str] = None,
+    ):
+        self.storage_path: str = storage_path
+        self.storage_cache_path: str = _get_defaults_results_dir()
+        # TODO(ml-team): Experiment/trial name generation can be cleaned up
+        # StorageContext could be the generator + source of truth of all these paths.
+        self.experiment_dir_name: str = experiment_dir_name
+        self.trial_dir_name: Optional[str] = trial_dir_name
+        self.sync_config: SyncConfig = dataclasses.replace(sync_config)
+
+        if storage_filesystem:
             # Custom pyarrow filesystem
-            self.storage_filesystem = run_config.storage_filesystem
+            self.storage_filesystem = storage_filesystem
             if is_uri(self.storage_path):
                 raise ValueError("TODO")
-            self.storage_path_on_filesystem = self.storage_path
+            self.storage_fs_path = self.storage_path
         else:
             (
                 self.storage_filesystem,
-                self.storage_path_on_filesystem,
+                self.storage_fs_path,
             ) = pyarrow.fs.FileSystem.from_uri(self.storage_path)
             print(f"Auto-detected storage filesystem.")
 
         self.syncer: Optional[Syncer] = (
             None
-            if self.storage_path == self.storage_cache_dir
+            if self.storage_path == self.storage_cache_path
             else _DefaultSyncer(
                 sync_period=self.sync_config.sync_period,
                 sync_timeout=self.sync_config.sync_timeout,
@@ -40,8 +86,19 @@ class StorageContext:
             )
         )
 
-        self._create_validation_file()
-        self._check_validation_file()
+        # self._create_validation_file()
+        # self._check_validation_file()
+
+    def __str__(self):
+        attrs = [
+            "storage_path",
+            "storage_cache_path",
+            "storage_filesystem",
+            "experiment_dir_name",
+            "trial_dir_name",
+        ]
+        attr_str = "\n".join([f"  {attr}={getattr(self, attr)}" for attr in attrs])
+        return f"StorageContext<\n{attr_str}\n>"
 
     def _create_validation_file(self):
         valid_file = os.path.join(self.storage_path_on_filesystem, "_valid")
@@ -60,23 +117,26 @@ class StorageContext:
             )
 
     @property
-    def experiment_dir(self) -> str:
-        pass
-
-    # @property
-    # def experiment_cache_dir(self) -> str:
-    #     pass
+    def experiment_fs_path(self) -> str:
+        return os.path.join(self.storage_fs_path, self.experiment_dir_name)
 
     @property
-    def trial_dir(self):
-        pass
+    def experiment_cache_dir(self) -> str:
+        return os.path.join(self.storage_cache_path, self.experiment_dir_name)
+
+    @property
+    def trial_fs_path(self) -> str:
+        assert (
+            self.trial_dir_name
+        ), "Should not access `trial_fs_path without setting trial_dir_name"
+        return os.path.join(self.experiment_fs_path, self.trial_dir_name)
 
     # @property
     # def trial_cache_path(self):
     #     pass
 
-    def construct_checkpoint_path(self, checkpoint_dir_name: str) -> str:
-        pass
+    def construct_checkpoint_fs_path(self, checkpoint_dir_name: str) -> str:
+        return os.path.join(self.trial_fs_path, checkpoint_dir_name)
 
 
 # Maybe have it be a global variable??
@@ -85,7 +145,7 @@ class StorageContext:
 _storage_context: Optional[StorageContext] = None
 
 
-def init_storage_context(storage_context: Optional[StorageContext]):
+def init_shared_storage_context(storage_context: StorageContext):
     global _storage_context
     _storage_context = storage_context
 
