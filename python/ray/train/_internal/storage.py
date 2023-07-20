@@ -142,6 +142,10 @@ class StorageContext:
 # Maybe have it be a global variable??
 # To communicate from trainable -> "Trainer", rather than pipe it from the BaseTrainer
 # The BaseTrainer could have a different RunConfig...
+# And BaseTrainer has no idea what the experiment name / trial name is.
+# It might be easier for this always to be a shared, global variable
+# In unit tests, we just need to initialize a storage context in a fixture, rather than
+# mock a bunch of stuff and pipe it through N layers.
 _storage_context: Optional[StorageContext] = None
 
 
@@ -150,5 +154,9 @@ def init_shared_storage_context(storage_context: StorageContext):
     _storage_context = storage_context
 
 
-def get_storage_context() -> Optional[StorageContext]:
+def get_storage_context() -> StorageContext:
+    assert _storage_context, (
+        "You must first call `init_shared_storage_context` in order to access a "
+        "shared, global StorageContext."
+    )
     return _storage_context
