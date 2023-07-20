@@ -69,6 +69,10 @@ class URI:
         return self._get_str_representation(self._parsed, self._path)
 
 
+def is_uri(path: str) -> bool:
+    return bool(urllib.parse.urlparse(path).scheme)
+
+
 def _join_path_or_uri(base_path: str, path_to_join: str) -> str:
     """Joins paths to form either a URI (w/ possible URL params) or a local path.
 
