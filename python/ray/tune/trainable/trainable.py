@@ -187,12 +187,12 @@ class Trainable:
         if USE_STORAGE_CONTEXT:
             assert storage
             assert storage.trial_fs_path
+            print("[DEBUG] StorageContext on the TRAINABLE:\n", storage, "\n")
 
         self._storage = storage
         # Set a globally accessible storage context on the remote Trainable process
         # This is accessible from the training loop thread for FunctionTrainable's
         init_shared_storage_context(storage)
-        print("[DEBUG] StorageContext on the TRAINABLE:\n", storage, "\n")
 
         self.remote_checkpoint_dir = remote_checkpoint_dir
         # If no sync_config is provided, but we save to a remote_checkpoint_dir,

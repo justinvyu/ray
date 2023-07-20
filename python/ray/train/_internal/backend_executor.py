@@ -28,6 +28,11 @@ from ray.train.constants import (
     DISABLE_LAZY_CHECKPOINTING_ENV,
 )
 from ray.util.placement_group import get_current_placement_group, remove_placement_group
+from ray.train._internal.storage import (
+    USE_STORAGE_CONTEXT,
+    StorageContext,
+    get_storage_context,
+)
 
 T = TypeVar("T")
 
@@ -378,6 +383,7 @@ class BackendExecutor:
             encode_data_fn,
             checkpoint_keep_all_ranks,
             checkpoint_upload_from_workers,
+            storage,
         ):
             try:
                 init_session(
@@ -395,6 +401,7 @@ class BackendExecutor:
                     enable_lazy_checkpointing=use_lazy_checkpointing,
                     checkpoint_keep_all_ranks=checkpoint_keep_all_ranks,
                     checkpoint_upload_from_workers=(checkpoint_upload_from_workers),
+                    storage=storage,
                 )
             except ValueError:
                 raise TrainBackendError(
@@ -440,6 +447,8 @@ class BackendExecutor:
                     checkpoint_upload_from_workers=(
                         self._checkpoint_upload_from_workers
                     ),
+                    # Pass the Trainable's shared storage context to the Train workers
+                    storage=get_storage_context() if USE_STORAGE_CONTEXT else None,
                 )
             )
 

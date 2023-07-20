@@ -5,7 +5,6 @@ from typing import Optional
 import pyarrow.fs
 
 from ray.air._internal.uri_utils import is_uri
-from ray.train import RunConfig
 from ray.tune.syncer import Syncer, SyncConfig, _DefaultSyncer
 from ray.tune.result import _get_defaults_results_dir
 
