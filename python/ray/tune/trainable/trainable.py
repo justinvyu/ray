@@ -54,6 +54,11 @@ from ray.tune.execution.placement_groups import PlacementGroupFactory
 from ray.tune.syncer import SyncConfig, get_node_to_storage_syncer
 from ray.tune.trainable.util import TrainableUtil
 from ray.tune.utils.util import Tee, _get_checkpoint_from_remote_node
+from ray.train._internal.storage import (
+    USE_STORAGE_CONTEXT,
+    StorageContext,
+    init_shared_storage_context,
+)
 from ray.util.annotations import PublicAPI
 
 if TYPE_CHECKING:
@@ -112,6 +117,7 @@ class Trainable:
         logger_creator: Callable[[Dict[str, Any]], "Logger"] = None,  # Deprecated (2.7)
         remote_checkpoint_dir: Optional[str] = None,
         sync_config: Optional[SyncConfig] = None,
+        storage: Optional[StorageContext] = None,
     ):
         """Initialize a Trainable.
 
@@ -177,6 +183,16 @@ class Trainable:
             )
         log_sys_usage = self.config.get("log_sys_usage", False)
         self._monitor = UtilMonitor(start=log_sys_usage)
+
+        if USE_STORAGE_CONTEXT:
+            assert storage
+            assert storage.trial_fs_path
+
+        self._storage = storage
+        # Set a globally accessible storage context on the remote Trainable process
+        # This is accessible from the training loop thread for FunctionTrainable's
+        init_shared_storage_context(storage)
+        print("[DEBUG] StorageContext on the TRAINABLE:\n", storage, "\n")
 
         self.remote_checkpoint_dir = remote_checkpoint_dir
         # If no sync_config is provided, but we save to a remote_checkpoint_dir,

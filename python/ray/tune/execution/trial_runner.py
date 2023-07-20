@@ -56,6 +56,7 @@ from ray.tune.utils.serialization import TuneFunctionDecoder, TuneFunctionEncode
 from ray.tune.web_server import TuneServer
 from ray.util.annotations import DeveloperAPI, Deprecated
 from ray.util.debug import log_once
+from ray.train._internal.storage import USE_STORAGE_CONTEXT, StorageContext
 
 MAX_DEBUG_TRIALS = 20
 
@@ -134,6 +135,7 @@ class _TuneControllerBase:
         callbacks: Optional[List[Callback]] = None,
         metric: Optional[str] = None,
         trial_checkpoint_config: Optional[CheckpointConfig] = None,
+        storage: Optional[StorageContext] = None,
         _trainer_api: bool = False,
     ):
         self._search_alg = search_alg or BasicVariantGenerator()
@@ -147,6 +149,7 @@ class _TuneControllerBase:
 
         self._max_pending_trials = _get_max_pending_trials(self._search_alg)
 
+        self._storage = storage
         self._sync_config = sync_config or SyncConfig()
 
         # Rename for better code readability

@@ -40,7 +40,7 @@ from ray.tune.utils.object_cache import _ObjectCache
 from ray.tune.utils.resource_updater import _ResourceUpdater
 from ray.util.annotations import DeveloperAPI
 from ray.util.debug import log_once
-
+from ray.train._internal.storage import USE_STORAGE_CONTEXT, StorageContext
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,7 @@ class TuneController(_TuneControllerBase):
         callbacks: Optional[List[Callback]] = None,
         metric: Optional[str] = None,
         trial_checkpoint_config: Optional[CheckpointConfig] = None,
+        storage: Optional[StorageContext] = None,
         chdir_to_trial_dir: bool = False,
         reuse_actors: bool = False,
         resource_manager_factory: Optional[Callable[[], ResourceManager]] = None,
@@ -161,6 +162,7 @@ class TuneController(_TuneControllerBase):
             callbacks=callbacks,
             metric=metric,
             trial_checkpoint_config=trial_checkpoint_config,
+            storage=storage,
             _trainer_api=_trainer_api,
         )
 
@@ -634,7 +636,7 @@ class TuneController(_TuneControllerBase):
 
         trial.set_location(_Location())
         trainable_kwargs = _get_trainable_kwargs(
-            trial=trial, should_chdir=self._chdir_to_trial_dir
+            trial=trial, should_chdir=self._chdir_to_trial_dir, storage=self._storage
         )
 
         with _change_working_directory(trial):

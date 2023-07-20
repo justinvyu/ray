@@ -60,6 +60,8 @@ from ray.tune.utils.util import _split_remote_local_path
 from ray.util.annotations import DeveloperAPI, Deprecated
 from ray.util.debug import log_once
 from ray._private.utils import binary_to_hex, hex_to_binary
+from ray.train._internal.storage import USE_STORAGE_CONTEXT, StorageContext
+
 
 DEBUG_PRINT_INTERVAL = 5
 _DEFAULT_WIN_MAX_PATH_LENGTH = 260
@@ -227,6 +229,7 @@ def _noop_logger_creator(
 def _get_trainable_kwargs(
     trial: "Trial",
     should_chdir: bool = False,
+    storage: Optional[StorageContext] = None,
 ) -> Dict[str, Any]:
     trial.init_local_path()
 
@@ -246,6 +249,12 @@ def _get_trainable_kwargs(
         "config": trial_config,
         "logger_creator": logger_creator,
     }
+
+    if USE_STORAGE_CONTEXT:
+        assert storage
+        trial_storage_context = copy.copy(storage)
+        trial_storage_context.trial_dir_name = trial.relative_logdir
+        kwargs["storage"] = trial_storage_context
 
     if trial.uses_cloud_checkpointing:
         # We keep these kwargs separate for backwards compatibility

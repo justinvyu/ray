@@ -24,7 +24,7 @@ from typing import (
 
 import ray
 from ray._private.storage import _get_storage_uri
-from ray.air import CheckpointConfig
+from ray.air import CheckpointConfig, RunConfig
 from ray.air._internal import usage as air_usage
 from ray.air._internal.usage import AirEntrypoint
 from ray.air.util.node import _force_on_current_node
@@ -90,6 +90,7 @@ from ray.tune.execution.placement_groups import PlacementGroupFactory
 from ray.tune.utils.util import _resolve_storage_path
 from ray.util.annotations import PublicAPI
 from ray.util.queue import Queue
+from ray.train._internal.storage import USE_STORAGE_CONTEXT, StorageContext
 
 if TYPE_CHECKING:
     from ray.tune.experimental.output import ProgressReporter as AirProgressReporter
@@ -303,6 +304,7 @@ def run(
     ] = None,
     num_samples: int = 1,
     storage_path: Optional[str] = None,
+    storage_filesystem: Optional["pyarrow.fs.FileSystem"] = None,
     search_alg: Optional[Union[Searcher, SearchAlgorithm, str]] = None,
     scheduler: Optional[Union[TrialScheduler, str]] = None,
     checkpoint_config: Optional[CheckpointConfig] = None,
@@ -1004,6 +1006,15 @@ def run(
     if air_verbosity is None:
         progress_reporter = progress_reporter or _detect_reporter()
 
+    if USE_STORAGE_CONTEXT:
+        storage = StorageContext(
+            storage_path=storage_path,
+            storage_filesystem=storage_filesystem,
+            sync_config=sync_config,
+            experiment_dir_name=experiments[0].dir_name,
+        )
+        print("[DEBUG] StorageContext on the DRIVER:\n", storage, "\n")
+
     trial_executor = trial_executor or RayTrialExecutor(
         reuse_actors=reuse_actors,
         result_buffer_length=result_buffer_length,
@@ -1024,6 +1035,7 @@ def run(
         callbacks=callbacks,
         metric=metric,
         trial_checkpoint_config=experiments[0].checkpoint_config,
+        storage=storage,
         _trainer_api=_entrypoint == AirEntrypoint.TRAINER,
     )
 
