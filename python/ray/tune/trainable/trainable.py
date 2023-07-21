@@ -188,6 +188,7 @@ class Trainable:
             assert storage
             assert storage.trial_fs_path
             print("[DEBUG] StorageContext on the TRAINABLE:\n", storage, "\n")
+            storage._check_validation_file()
 
         self._storage = storage
         # Set a globally accessible storage context on the remote Trainable process

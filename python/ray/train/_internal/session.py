@@ -128,6 +128,8 @@ class _TrainSession:
             print(
                 f"[DEBUG] StorageContext on TRAIN WORKER {world_rank}:\n", storage, "\n"
             )
+            storage._check_validation_file()
+
         self.storage = storage
 
         # Only used if checkpoint_upload_from_workers is True.
