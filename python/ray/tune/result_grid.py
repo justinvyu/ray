@@ -11,6 +11,7 @@ from ray.tune.error import TuneError
 from ray.tune.experiment import Trial
 from ray.tune.trainable.util import TrainableUtil
 from ray.util import PublicAPI
+from ray.train._internal.storage import USE_STORAGE_CONTEXT
 
 
 @PublicAPI(stability="beta")
@@ -270,15 +271,25 @@ class ResultGrid:
         return None
 
     def _trial_to_result(self, trial: Trial) -> Result:
-        local_to_remote_path_fn = (
-            partial(
-                TrainableUtil.get_remote_storage_path,
-                local_path_prefix=trial.local_path,
-                remote_path_prefix=trial.remote_path,
+        local_to_remote_path_fn = None
+        if USE_STORAGE_CONTEXT:
+            # TODO(justinvyu): This is a temporary hack that's needed for
+            # the old Checkpoint API, which expects a URI format (ex: s3://).
+            local_to_remote_path_fn = (
+                self._experiment_analysis._convert_local_to_cloud_path
+                if self._experiment_analysis._remote_experiment_path
+                else None
             )
-            if trial.uses_cloud_checkpointing
-            else None
-        )
+        else:
+            local_to_remote_path_fn = (
+                partial(
+                    TrainableUtil.get_remote_storage_path,
+                    local_path_prefix=trial.local_path,
+                    remote_path_prefix=trial.remote_path,
+                )
+                if trial.uses_cloud_checkpointing
+                else None
+            )
         checkpoint = trial.checkpoint.to_air_checkpoint(
             local_to_remote_path_fn,
         )
