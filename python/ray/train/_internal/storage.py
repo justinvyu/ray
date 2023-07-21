@@ -83,8 +83,8 @@ class StorageContext:
             )
         )
 
-        # self._create_validation_file()
-        # self._check_validation_file()
+        self._create_validation_file()
+        self._check_validation_file()
 
     def __str__(self):
         attrs = [
@@ -98,19 +98,19 @@ class StorageContext:
         return f"StorageContext<\n{attr_str}\n>"
 
     def _create_validation_file(self):
-        valid_file = os.path.join(self.storage_path_on_filesystem, "_valid")
-        self.storage_filesystem.create_dir(self.storage_prefix)
+        valid_file = os.path.join(self.experiment_fs_path, ".validate_storage_marker")
+        self.storage_filesystem.create_dir(self.experiment_fs_path)
         with self.storage_filesystem.open_output_stream(valid_file):
             pass
 
     def _check_validation_file(self):
-        valid_file = os.path.join(self.storage_path_on_filesystem, "/_valid")
+        valid_file = os.path.join(self.experiment_fs_path, ".validate_storage_marker")
         valid = self.storage_filesystem.get_file_info([valid_file])[0]
         if valid.type == pyarrow.fs.FileType.NotFound:
             raise RuntimeError(
-                "Unable to initialize storage: {} file created during init not found. "
-                "Check that configured cluster storage path is readable from all "
-                "worker nodes of the cluster.".format(valid_file)
+                f"Unable to set up cluster storage at storage_path={self.storage_path}"
+                "\nCheck that all nodes in the cluster have read/write access "
+                "to the configured storage path."
             )
 
     @property
@@ -143,6 +143,6 @@ def init_shared_storage_context(storage_context: StorageContext):
 def get_storage_context() -> StorageContext:
     assert _storage_context, (
         "You must first call `init_shared_storage_context` in order to access a "
-        "shared, global StorageContext."
+        "global shared copy of StorageContext."
     )
     return _storage_context
