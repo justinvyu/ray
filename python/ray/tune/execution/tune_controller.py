@@ -1069,7 +1069,10 @@ class TuneController(_TuneControllerBase):
             method_name = "restore_from_object"
             args = (checkpoint.dir_or_data,)
         elif (
-            trial.uses_cloud_checkpointing
+            # NOTE: The head node syncing case doesn't apply anymore (the next elif),
+            # so always sync down from storage in the new persistence codepath.
+            USE_STORAGE_CONTEXT
+            or trial.uses_cloud_checkpointing
             or not trial.sync_on_checkpoint
             or not os.path.exists(checkpoint.dir_or_data)
         ):
