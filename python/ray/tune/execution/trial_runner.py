@@ -338,6 +338,7 @@ class _TuneControllerBase:
             checkpoint_period=self._checkpoint_period,
             sync_config=self._sync_config,
             sync_every_n_trial_checkpoints=self._trial_checkpoint_config.num_to_keep,
+            storage=self._storage,
         )
 
     @classmethod
