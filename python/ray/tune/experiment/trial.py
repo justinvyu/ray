@@ -60,7 +60,11 @@ from ray.tune.utils.util import _split_remote_local_path
 from ray.util.annotations import DeveloperAPI, Deprecated
 from ray.util.debug import log_once
 from ray._private.utils import binary_to_hex, hex_to_binary
-from ray.train._internal.storage import USE_STORAGE_CONTEXT, StorageContext
+from ray.train._internal.storage import (
+    USE_STORAGE_CONTEXT,
+    StorageContext,
+    get_storage_context,
+)
 
 
 DEBUG_PRINT_INTERVAL = 5
@@ -377,64 +381,72 @@ class Trial:
         self.trainable_name = trainable_name
         self.trial_id = Trial.generate_id() if trial_id is None else trial_id
 
-        # Sync config
-        self.sync_config = sync_config or SyncConfig()
-
         # Set to pass through on `Trial.reset()`
         self._orig_experiment_path = experiment_path
         self._orig_experiment_dir_name = experiment_dir_name
 
-        local_experiment_path, remote_experiment_path = _split_remote_local_path(
-            experiment_path, None
-        )
+        if USE_STORAGE_CONTEXT:
+            storage = get_storage_context()
+            self.sync_config = storage.sync_config
+            self._local_experiment_path = storage.experiment_cache_dir
+            self._remote_experiment_path = storage.experiment_fs_path
+        else:
+            # Sync config
+            self.sync_config = sync_config or SyncConfig()
 
-        # Backwards compatibility for `local_dir`
-        if local_dir:
-            if local_experiment_path:
-                raise ValueError(
-                    "Only one of `local_dir` or `experiment_path` "
-                    "can be passed to `Trial()`."
-                )
-            local_experiment_path = local_dir
-
-        # Derive experiment dir name from local path
-        if not experiment_dir_name and local_experiment_path:
-            # Maybe derive experiment dir name from local storage dir
-            experiment_dir_name = Path(local_experiment_path).name
-        elif not experiment_dir_name:
-            experiment_dir_name = DEFAULT_EXPERIMENT_NAME
-
-        # Set default experiment dir name
-        if not local_experiment_path:
-            local_experiment_path = str(
-                Path(_get_defaults_results_dir()) / experiment_dir_name
+            local_experiment_path, remote_experiment_path = _split_remote_local_path(
+                experiment_path, None
             )
-            os.makedirs(local_experiment_path, exist_ok=True)
 
-        # Set remote experiment path if upload_dir is set
-        if self.sync_config.upload_dir:
-            if remote_experiment_path:
-                if not remote_experiment_path.startswith(self.sync_config.upload_dir):
+            # Backwards compatibility for `local_dir`
+            if local_dir:
+                if local_experiment_path:
                     raise ValueError(
-                        f"Both a `SyncConfig.upload_dir` and an `experiment_path` "
-                        f"pointing to remote storage were passed, but they do not "
-                        f"point to the same location. Got: "
-                        f"`experiment_path={experiment_path}` and "
-                        f"`SyncConfig.upload_dir={self.sync_config.upload_dir}`. "
+                        "Only one of `local_dir` or `experiment_path` "
+                        "can be passed to `Trial()`."
                     )
-                warnings.warn(
-                    "If `experiment_path` points to a remote storage location, "
-                    "do not set `SyncConfig.upload_dir`. ",
-                    DeprecationWarning,
-                )
-            else:
-                remote_experiment_path = str(
-                    URI(self.sync_config.upload_dir) / experiment_dir_name
-                )
+                local_experiment_path = local_dir
 
-        # Finally, set properties
-        self._local_experiment_path = local_experiment_path
-        self._remote_experiment_path = remote_experiment_path
+            # Derive experiment dir name from local path
+            if not experiment_dir_name and local_experiment_path:
+                # Maybe derive experiment dir name from local storage dir
+                experiment_dir_name = Path(local_experiment_path).name
+            elif not experiment_dir_name:
+                experiment_dir_name = DEFAULT_EXPERIMENT_NAME
+
+            # Set default experiment dir name
+            if not local_experiment_path:
+                local_experiment_path = str(
+                    Path(_get_defaults_results_dir()) / experiment_dir_name
+                )
+                os.makedirs(local_experiment_path, exist_ok=True)
+
+            # Set remote experiment path if upload_dir is set
+            if self.sync_config.upload_dir:
+                if remote_experiment_path:
+                    if not remote_experiment_path.startswith(
+                        self.sync_config.upload_dir
+                    ):
+                        raise ValueError(
+                            f"Both a `SyncConfig.upload_dir` and an `experiment_path` "
+                            f"pointing to remote storage were passed, but they do not "
+                            f"point to the same location. Got: "
+                            f"`experiment_path={experiment_path}` and "
+                            f"`SyncConfig.upload_dir={self.sync_config.upload_dir}`. "
+                        )
+                    warnings.warn(
+                        "If `experiment_path` points to a remote storage location, "
+                        "do not set `SyncConfig.upload_dir`. ",
+                        DeprecationWarning,
+                    )
+                else:
+                    remote_experiment_path = str(
+                        URI(self.sync_config.upload_dir) / experiment_dir_name
+                    )
+
+            # Finally, set properties
+            self._local_experiment_path = local_experiment_path
+            self._remote_experiment_path = remote_experiment_path
 
         self.config = config or {}
         # Save a copy of the original unresolved config so that we can swap

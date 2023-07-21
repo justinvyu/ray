@@ -90,7 +90,11 @@ from ray.tune.execution.placement_groups import PlacementGroupFactory
 from ray.tune.utils.util import _resolve_storage_path
 from ray.util.annotations import PublicAPI
 from ray.util.queue import Queue
-from ray.train._internal.storage import USE_STORAGE_CONTEXT, StorageContext
+from ray.train._internal.storage import (
+    USE_STORAGE_CONTEXT,
+    StorageContext,
+    init_shared_storage_context,
+)
 
 if TYPE_CHECKING:
     from ray.tune.experimental.output import ProgressReporter as AirProgressReporter
@@ -1013,6 +1017,7 @@ def run(
             sync_config=sync_config,
             experiment_dir_name=experiments[0].dir_name,
         )
+        init_shared_storage_context(storage)
         print("[DEBUG] StorageContext on the DRIVER:\n", storage, "\n")
 
     trial_executor = trial_executor or RayTrialExecutor(
