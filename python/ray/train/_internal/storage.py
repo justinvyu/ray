@@ -33,7 +33,7 @@ class StorageContext:
         trial_fs_path = "bucket/results/exp_name/trial_dir"
         # trial_cache_path = "~/ray_results/exp_name/trial_dir"
 
-    Internal Usage:
+    Internal Usage Examples:
         construct_checkpoint_fs_path("checkpoint_000001")
         -> "bucket/results/exp_name/trial_dir/checkpoint_000001"
 
@@ -42,12 +42,10 @@ class StorageContext:
             os.path.join(storage.trial_fs_path, "subdir"),
             destination_filesystem=storage.filesystem
         )
-
     """
 
     def __init__(
         self,
-        # TODO(justinvyu): would be nice if this could just take in a RunConfig
         storage_path: str,
         sync_config: SyncConfig,
         experiment_dir_name: str,
@@ -130,21 +128,10 @@ class StorageContext:
         ), "Should not access `trial_fs_path without setting trial_dir_name"
         return os.path.join(self.experiment_fs_path, self.trial_dir_name)
 
-    # @property
-    # def trial_cache_path(self):
-    #     pass
-
     def construct_checkpoint_fs_path(self, checkpoint_dir_name: str) -> str:
         return os.path.join(self.trial_fs_path, checkpoint_dir_name)
 
 
-# Maybe have it be a global variable??
-# To communicate from trainable -> "Trainer", rather than pipe it from the BaseTrainer
-# The BaseTrainer could have a different RunConfig...
-# And BaseTrainer has no idea what the experiment name / trial name is.
-# It might be easier for this always to be a shared, global variable
-# In unit tests, we just need to initialize a storage context in a fixture, rather than
-# mock a bunch of stuff and pipe it through N layers.
 _storage_context: Optional[StorageContext] = None
 
 
