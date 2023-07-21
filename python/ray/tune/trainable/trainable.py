@@ -221,7 +221,9 @@ class Trainable:
 
     @property
     def uses_cloud_checkpointing(self):
-        return bool(self.remote_checkpoint_dir)
+        # NOTE: If storage_path == cache_path, no syncer is set,
+        # so don't attempt uploading checkpoints/artifacts
+        return bool(self.remote_checkpoint_dir) and bool(self.sync_config.syncer)
 
     def _remote_storage_path(self, local_path):
         """Converts a `local_path` to be based off of
