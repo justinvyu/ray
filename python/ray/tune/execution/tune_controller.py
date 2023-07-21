@@ -1158,15 +1158,24 @@ class TuneController(_TuneControllerBase):
             should_chdir=self._chdir_to_trial_dir,
         )
 
+        reset_kwargs = {
+            "logger_creator": logger_creator,
+            "remote_checkpoint_dir": trial.remote_checkpoint_dir,
+        }
+
+        if USE_STORAGE_CONTEXT:
+            assert self._storage
+            trial_storage_context = copy.copy(self._storage)
+            trial_storage_context.trial_dir_name = trial.relative_logdir
+
+            reset_kwargs["storage"] = trial_storage_context
+
         self._resetting_trials.add(trial)
         self._schedule_trial_task(
             trial=trial,
             method_name="reset",
             args=(extra_config,),
-            kwargs={
-                "logger_creator": logger_creator,
-                "remote_checkpoint_dir": trial.remote_checkpoint_dir,
-            },
+            kwargs=reset_kwargs,
             on_result=self._on_trial_reset,
             on_error=self._trial_task_failure,
         )

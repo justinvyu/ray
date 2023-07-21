@@ -1023,7 +1023,13 @@ class Trainable:
         export_dir = export_dir or self.logdir
         return self._export_model(export_formats, export_dir)
 
-    def reset(self, new_config, logger_creator=None, remote_checkpoint_dir=None):
+    def reset(
+        self,
+        new_config,
+        logger_creator=None,
+        remote_checkpoint_dir=None,
+        storage: Optional[StorageContext] = None,
+    ):
         """Resets trial for use with new config.
 
         Subclasses should override reset_config() to actually
@@ -1061,6 +1067,16 @@ class Trainable:
         if not success:
             return False
 
+        self._storage = storage
+        if USE_STORAGE_CONTEXT:
+            assert storage
+            self.remote_checkpoint_dir = storage.trial_fs_path
+            # NOTE: The global storage context needs to be reset to
+            # one corresponding to the new trial coming in.
+            init_shared_storage_context(storage)
+        else:
+            self.remote_checkpoint_dir = remote_checkpoint_dir
+
         # Reset attributes. Will be overwritten by `restore` if a checkpoint
         # is provided.
         self._iteration = 0
@@ -1070,7 +1086,6 @@ class Trainable:
         self._time_since_restore = 0.0
         self._timesteps_since_restore = 0
         self._iterations_since_restore = 0
-        self.remote_checkpoint_dir = remote_checkpoint_dir
         self._last_artifact_sync_iter = None
         self._restored = False
 
