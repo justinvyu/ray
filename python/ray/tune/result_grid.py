@@ -306,7 +306,11 @@ class ResultGrid:
             metrics=trial.last_result.copy(),
             error=self._populate_exception(trial),
             _local_path=trial.local_path,
-            _remote_path=trial.remote_path,
+            _remote_path=self._experiment_analysis._convert_local_to_cloud_path(
+                trial.local_path
+            )
+            if USE_STORAGE_CONTEXT and self._experiment_analysis._remote_experiment_path
+            else trial.remote_path,
             metrics_dataframe=self._experiment_analysis.trial_dataframes.get(
                 trial.local_path
             )
