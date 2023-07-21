@@ -558,7 +558,7 @@ def upload_to_uri(
         _upload_to_uri_with_exclude_fsspec(
             local_path=local_path,
             fs=destination_filesystem,
-            bucket_path=destination_filesystem,
+            bucket_path=destination_path,
             exclude=exclude,
         )
     else:
