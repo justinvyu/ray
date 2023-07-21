@@ -152,49 +152,56 @@ class _TuneControllerBase:
         self._storage = storage
         self._sync_config = sync_config or SyncConfig()
 
-        # Rename for better code readability
-        local_experiment_path, remote_experiment_path = _split_remote_local_path(
-            experiment_path, None
-        )
-
-        # Derive experiment dir name from local path
-        if not experiment_dir_name and local_experiment_path:
-            # Maybe derive experiment dir name from local storage dir
-            experiment_dir_name = Path(local_experiment_path).name
-        elif not experiment_dir_name:
-            experiment_dir_name = DEFAULT_EXPERIMENT_NAME
-
-        # Set default experiment dir name
-        if not local_experiment_path:
-            local_experiment_path = str(
-                Path(_get_defaults_results_dir()) / experiment_dir_name
+        if USE_STORAGE_CONTEXT:
+            self._experiment_dir_name = storage.experiment_cache_dir
+            self._local_experiment_path = storage.experiment_cache_dir
+            self._remote_experiment_path = storage.experiment_fs_path
+        else:
+            # Rename for better code readability
+            local_experiment_path, remote_experiment_path = _split_remote_local_path(
+                experiment_path, None
             )
-            os.makedirs(local_experiment_path, exist_ok=True)
 
-        self._experiment_dir_name = experiment_dir_name
+            # Derive experiment dir name from local path
+            if not experiment_dir_name and local_experiment_path:
+                # Maybe derive experiment dir name from local storage dir
+                experiment_dir_name = Path(local_experiment_path).name
+            elif not experiment_dir_name:
+                experiment_dir_name = DEFAULT_EXPERIMENT_NAME
 
-        if self._sync_config.upload_dir and self._experiment_dir_name:
-            if remote_experiment_path:
-                if not remote_experiment_path.startswith(self.sync_config.upload_dir):
-                    raise ValueError(
-                        f"Both a `SyncConfig.upload_dir` and an `experiment_path` "
-                        f"pointing to remote storage were passed, but they do not "
-                        f"point to the same location. Got: "
-                        f"`experiment_path={experiment_path}` and "
-                        f"`SyncConfig.upload_dir={self.sync_config.upload_dir}`. "
+            # Set default experiment dir name
+            if not local_experiment_path:
+                local_experiment_path = str(
+                    Path(_get_defaults_results_dir()) / experiment_dir_name
+                )
+                os.makedirs(local_experiment_path, exist_ok=True)
+
+            self._experiment_dir_name = experiment_dir_name
+
+            if self._sync_config.upload_dir and self._experiment_dir_name:
+                if remote_experiment_path:
+                    if not remote_experiment_path.startswith(
+                        self.sync_config.upload_dir
+                    ):
+                        raise ValueError(
+                            f"Both a `SyncConfig.upload_dir` and an `experiment_path` "
+                            f"pointing to remote storage were passed, but they do not "
+                            f"point to the same location. Got: "
+                            f"`experiment_path={experiment_path}` and "
+                            f"`SyncConfig.upload_dir={self.sync_config.upload_dir}`. "
+                        )
+                    warnings.warn(
+                        "If `experiment_path` points to a remote storage location, "
+                        "do not set `SyncConfig.upload_dir`. ",
+                        DeprecationWarning,
                     )
-                warnings.warn(
-                    "If `experiment_path` points to a remote storage location, "
-                    "do not set `SyncConfig.upload_dir`. ",
-                    DeprecationWarning,
-                )
-            else:
-                remote_experiment_path = str(
-                    URI(self._sync_config.upload_dir) / self._experiment_dir_name
-                )
+                else:
+                    remote_experiment_path = str(
+                        URI(self._sync_config.upload_dir) / self._experiment_dir_name
+                    )
 
-        self._local_experiment_path = local_experiment_path
-        self._remote_experiment_path = remote_experiment_path
+            self._local_experiment_path = local_experiment_path
+            self._remote_experiment_path = remote_experiment_path
 
         self._metric = metric
 
