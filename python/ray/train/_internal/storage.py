@@ -5,11 +5,18 @@ from typing import Optional
 import pyarrow.fs
 
 from ray.air._internal.uri_utils import is_uri
+from ray.air._internal.remote_storage import get_fs_and_path
 from ray.tune.syncer import Syncer, SyncConfig, _DefaultSyncer
 from ray.tune.result import _get_defaults_results_dir
 
 # Whether to enable the new simple persistence mode.
-USE_STORAGE_CONTEXT = bool(int(os.environ.get("TUNE_USE_STORAGE_CONTEXT", "1")))
+
+
+def _use_storage_context() -> bool:
+    return bool(int(os.environ.get("TUNE_USE_STORAGE_CONTEXT", "1")))
+
+
+USE_STORAGE_CONTEXT = _use_storage_context()
 
 
 class StorageContext:
@@ -70,8 +77,8 @@ class StorageContext:
             (
                 self.storage_filesystem,
                 self.storage_fs_path,
-            ) = pyarrow.fs.FileSystem.from_uri(self.storage_path)
-            print(f"Auto-detected storage filesystem.")
+            ) = get_fs_and_path(self.storage_path)
+            print(f"Auto-detected storage filesystem: {self.storage_filesystem}")
 
         self.syncer: Optional[Syncer] = (
             None
@@ -95,6 +102,7 @@ class StorageContext:
             "storage_path",
             "storage_cache_path",
             "storage_filesystem",
+            "storage_fs_path",
             "experiment_dir_name",
             "trial_dir_name",
         ]
