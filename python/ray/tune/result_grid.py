@@ -306,6 +306,8 @@ class ResultGrid:
             metrics=trial.last_result.copy(),
             error=self._populate_exception(trial),
             _local_path=trial.local_path,
+            # TODO(justinvyu): This is a similar hack as above.
+            # Needed for the output `result.path` to remain as a URI format.
             _remote_path=self._experiment_analysis._convert_local_to_cloud_path(
                 trial.local_path
             )

@@ -1179,7 +1179,8 @@ def run(
         trials=all_trials,
         default_metric=metric,
         default_mode=mode,
-        remote_storage_path=remote_path,
+        # TODO(justinvyu): This may be a fix to an existing bug.
+        remote_storage_path=storage_path if USE_STORAGE_CONTEXT else remote_path,
     )
 
     return ea
