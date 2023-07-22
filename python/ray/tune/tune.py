@@ -868,6 +868,7 @@ def run(
                 resources_per_trial=resources_per_trial,
                 num_samples=num_samples,
                 storage_path=storage_path,
+                storage_filesystem=storage_filesystem,
                 _experiment_checkpoint_dir=_experiment_checkpoint_dir,
                 sync_config=sync_config,
                 checkpoint_config=checkpoint_config,
