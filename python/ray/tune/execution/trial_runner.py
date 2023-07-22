@@ -1,3 +1,4 @@
+import copy
 import uuid
 from typing import Any, Dict, List, Optional, Union, Tuple, Set
 
@@ -456,6 +457,8 @@ class _TuneControllerBase:
 
             # The following properties may be updated on restoration
             # Ex: moved local/cloud experiment directory
+            if USE_STORAGE_CONTEXT:
+                trial.storage = copy.copy(self._storage)
             # ATTN: Set `local_experiment_path` to update trial checkpoints!
             trial.local_experiment_path = self._local_experiment_path
             trial.remote_experiment_path = self._remote_experiment_path

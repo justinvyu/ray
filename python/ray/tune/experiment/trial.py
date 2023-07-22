@@ -233,7 +233,6 @@ def _noop_logger_creator(
 def _get_trainable_kwargs(
     trial: "Trial",
     should_chdir: bool = False,
-    storage: Optional[StorageContext] = None,
 ) -> Dict[str, Any]:
     trial.init_local_path()
 
@@ -255,12 +254,10 @@ def _get_trainable_kwargs(
     }
 
     if USE_STORAGE_CONTEXT:
-        assert storage
-        trial_storage_context = copy.copy(storage)
-        trial_storage_context.trial_dir_name = trial.relative_logdir
-        kwargs["storage"] = trial_storage_context
-
-    if trial.uses_cloud_checkpointing:
+        assert trial.storage
+        assert trial.storage.trial_dir_name
+        kwargs["storage"] = trial.storage
+    elif trial.uses_cloud_checkpointing:
         # We keep these kwargs separate for backwards compatibility
         # with trainables that don't provide these keyword arguments
         kwargs["remote_checkpoint_dir"] = trial.remote_path
@@ -340,6 +337,7 @@ class Trial:
         *,
         config: Optional[Dict] = None,
         trial_id: Optional[str] = None,
+        storage: Optional[StorageContext] = None,
         experiment_path: Optional[str] = None,
         experiment_dir_name: Optional[str] = None,
         evaluated_params: Optional[Dict] = None,
@@ -385,11 +383,13 @@ class Trial:
         self._orig_experiment_path = experiment_path
         self._orig_experiment_dir_name = experiment_dir_name
 
+        self.storage = copy.copy(storage)
         if USE_STORAGE_CONTEXT:
-            storage = get_storage_context()
-            self.sync_config = storage.sync_config
-            self._local_experiment_path = storage.experiment_cache_dir
-            self._remote_experiment_path = storage.experiment_fs_path
+            # NOTE: storage is None on restoration
+            if storage:
+                self.sync_config = self.storage.sync_config
+                self._local_experiment_path = self.storage.experiment_cache_dir
+                self._remote_experiment_path = self.storage.experiment_fs_path
         else:
             # Sync config
             self.sync_config = sync_config or SyncConfig()
@@ -860,6 +860,11 @@ class Trial:
                 f"Path: {logdir_path}"
             )
         logdir_path.mkdir(parents=True, exist_ok=True)
+
+        if USE_STORAGE_CONTEXT:
+            # Populate the storage context with the trial dir name we just generated.
+            assert self.storage
+            self.storage.trial_dir_name = self.relative_logdir
 
         self.invalidate_json_state()
 

@@ -636,7 +636,7 @@ class TuneController(_TuneControllerBase):
 
         trial.set_location(_Location())
         trainable_kwargs = _get_trainable_kwargs(
-            trial=trial, should_chdir=self._chdir_to_trial_dir, storage=self._storage
+            trial=trial, should_chdir=self._chdir_to_trial_dir
         )
 
         with _change_working_directory(trial):
@@ -1165,10 +1165,7 @@ class TuneController(_TuneControllerBase):
 
         if USE_STORAGE_CONTEXT:
             assert self._storage
-            trial_storage_context = copy.copy(self._storage)
-            trial_storage_context.trial_dir_name = trial.relative_logdir
-
-            reset_kwargs["storage"] = trial_storage_context
+            reset_kwargs["storage"] = trial.storage
 
         self._resetting_trials.add(trial)
         self._schedule_trial_task(

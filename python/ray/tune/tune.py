@@ -1010,16 +1010,6 @@ def run(
     if air_verbosity is None:
         progress_reporter = progress_reporter or _detect_reporter()
 
-    if USE_STORAGE_CONTEXT:
-        storage = StorageContext(
-            storage_path=storage_path,
-            storage_filesystem=storage_filesystem,
-            sync_config=sync_config,
-            experiment_dir_name=experiments[0].dir_name,
-        )
-        init_shared_storage_context(storage)
-        print("[DEBUG] StorageContext on the DRIVER:\n", storage, "\n")
-
     trial_executor = trial_executor or RayTrialExecutor(
         reuse_actors=reuse_actors,
         result_buffer_length=result_buffer_length,
@@ -1040,7 +1030,7 @@ def run(
         callbacks=callbacks,
         metric=metric,
         trial_checkpoint_config=experiments[0].checkpoint_config,
-        storage=storage,
+        storage=experiments[0].storage,
         _trainer_api=_entrypoint == AirEntrypoint.TRAINER,
     )
 
