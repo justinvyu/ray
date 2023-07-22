@@ -56,12 +56,28 @@ def test_tuner(monkeypatch, storage_path_type, tmp_path):
     exp_name = "simple_persistence_test"
 
     with context_manager() as cloud_storage_path:
+        storage_filesystem = None
         if storage_path_type is None:
             storage_path = None
         elif storage_path_type == "nfs":
             storage_path = str(tmp_path / "fake_nfs")
-        else:
+        elif storage_path_type == "cloud":
             storage_path = str(cloud_storage_path)
+        elif storage_path_type == "custom_fs":
+            # TODO(justinvyu): This doesn't work at the moment.
+            from fsspec.implementations.dirfs import DirFileSystem
+            from fsspec.implementations.local import LocalFileSystem
+
+            import pyarrow.fs
+
+            storage_path = "mock_bucket"
+            storage_filesystem = pyarrow.fs.PyFileSystem(
+                pyarrow.fs.FSSpecHandler(
+                    DirFileSystem(
+                        path=str(tmp_path / "custom_fs"), fs=LocalFileSystem()
+                    )
+                )
+            )
 
         NUM_ITERATIONS = 6  # == num_checkpoints == num_artifacts
         NUM_TRIALS = 1
@@ -70,6 +86,7 @@ def test_tuner(monkeypatch, storage_path_type, tmp_path):
             param_space={"num_iterations": NUM_ITERATIONS},
             run_config=train.RunConfig(
                 storage_path=storage_path,
+                storage_filesystem=storage_filesystem,
                 name="simple_persistence_test",
                 verbose=0,
                 failure_config=train.FailureConfig(max_failures=1),
@@ -89,7 +106,11 @@ def test_tuner(monkeypatch, storage_path_type, tmp_path):
 
         local_inspect_dir = tmp_path / "inspect"
         if storage_path:
-            download_from_uri(storage_path, str(local_inspect_dir))
+            download_from_uri(
+                storage_path,
+                str(local_inspect_dir),
+                storage_filesystem=storage_filesystem,
+            )
         else:
             local_inspect_dir = LOCAL_CACHE_DIR
 
