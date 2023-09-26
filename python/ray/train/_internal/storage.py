@@ -603,7 +603,9 @@ class StorageContext:
         by pyarrow.fs.FileSystem.from_uri already. The URI scheme information is
         kept in `storage_filesystem` instead.
         """
-        return os.path.join(self.storage_fs_path, self.experiment_dir_name)
+        return os.path.normpath(
+            os.path.join(self.storage_fs_path, self.experiment_dir_name)
+        )
 
     @property
     def experiment_local_path(self) -> str:
@@ -612,7 +614,9 @@ class StorageContext:
         This local "cache" path refers to location where files are dumped before
         syncing them to the `storage_path` on the `storage_filesystem`.
         """
-        return os.path.join(self.storage_local_path, self.experiment_dir_name)
+        return os.path.normpath(
+            os.path.join(self.storage_local_path, self.experiment_dir_name)
+        )
 
     @property
     def trial_local_path(self) -> str:
@@ -624,7 +628,9 @@ class StorageContext:
             raise RuntimeError(
                 "Should not access `trial_local_path` without setting `trial_dir_name`"
             )
-        return os.path.join(self.experiment_local_path, self.trial_dir_name)
+        return os.path.normpath(
+            os.path.join(self.experiment_local_path, self.trial_dir_name)
+        )
 
     @property
     def trial_fs_path(self) -> str:
@@ -636,7 +642,9 @@ class StorageContext:
             raise RuntimeError(
                 "Should not access `trial_fs_path` without setting `trial_dir_name`"
             )
-        return os.path.join(self.experiment_fs_path, self.trial_dir_name)
+        return os.path.normpath(
+            os.path.join(self.experiment_fs_path, self.trial_dir_name)
+        )
 
     @property
     def checkpoint_fs_path(self) -> str:
@@ -646,7 +654,9 @@ class StorageContext:
         The user of this class is responsible for setting the `current_checkpoint_index`
         (e.g., incrementing when needed).
         """
-        return os.path.join(self.trial_fs_path, self.checkpoint_dir_name)
+        return os.path.normpath(
+            os.path.join(self.trial_fs_path, self.checkpoint_dir_name)
+        )
 
     @property
     def checkpoint_dir_name(self) -> str:
