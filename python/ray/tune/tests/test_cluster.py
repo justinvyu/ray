@@ -144,8 +144,6 @@ def test_trial_processed_after_node_failure(start_connected_emptyhead_cluster, s
     runner = TuneController(search_alg=BasicVariantGenerator(), storage=storage)
     mock_process_failure = MagicMock(side_effect=runner._process_trial_failure)
     runner._process_trial_failure = mock_process_failure
-    # Disable recursion in magic mock when saving experiment state
-    runner.save_to_dir = lambda *args, **kwargs: None
 
     runner.add_trial(Trial("__fake", storage=storage))
     trial = runner.get_trials()[0]

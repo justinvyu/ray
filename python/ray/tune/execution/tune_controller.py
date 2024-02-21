@@ -110,9 +110,9 @@ class TuneController:
         self._trial_to_actor: Dict[Trial, TrackedActor] = {}
 
         # Resources <-> Trial
-        self._resources_to_pending_trials: Dict[
-            ResourceRequest, Set[Trial]
-        ] = defaultdict(set)
+        self._resources_to_pending_trials: Dict[ResourceRequest, Set[Trial]] = (
+            defaultdict(set)
+        )
 
         # Keep track of actor states
         self._pending_trials: Set[Trial] = set()
@@ -389,45 +389,6 @@ class TuneController:
                 f.write(ray_pickle.dumps(callback_state))
 
         return save_fn
-
-    def save_to_dir(self):
-        """Save TuneController state to the local experiment directory.
-
-        This includes:
-        - trial states
-        - TuneController internal state (all the serializable attributes)
-        - the searcher state
-        - the callback states
-        """
-        experiment_dir = self._storage.experiment_local_path
-
-        # Get state from trial executor and runner
-        runner_state = {
-            # Trials
-            "trial_data": list(self._get_trial_checkpoints().values()),
-            # Experiment data
-            "runner_data": self.__getstate__(),
-            # Metadata
-            "stats": {
-                "start_time": self._start_time,
-                "timestamp": self._last_checkpoint_time,
-            },
-        }
-
-        tmp_file_name = Path(
-            experiment_dir, f".tmp_experiment_state_{uuid.uuid4()}"
-        ).as_posix()
-
-        with open(tmp_file_name, "w") as f:
-            json.dump(runner_state, f, indent=2, cls=TuneFunctionEncoder)
-
-        os.replace(
-            tmp_file_name,
-            Path(experiment_dir, self.experiment_state_file_name).as_posix(),
-        )
-
-        self._search_alg.save_to_dir(experiment_dir, session_str=self._session_str)
-        self._callbacks.save_to_dir(experiment_dir, session_str=self._session_str)
 
     def restore_from_dir(self) -> List[Trial]:
         """Restore TrialRunner state from local experiment directory.
