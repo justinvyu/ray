@@ -301,6 +301,9 @@ class _ExperimentCheckpointManager:
         Returns:
             can_restore: Whether the experiment can be restored.
         """
+        raise DeprecationWarning(
+            "TODO(justinvyu): Rework this so that we don't download any files."
+        )
         experiment_local_path = self._storage.experiment_local_path
         experiment_fs_path = self._storage.experiment_fs_path
 

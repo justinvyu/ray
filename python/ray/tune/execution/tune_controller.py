@@ -390,6 +390,10 @@ class TuneController:
 
         return save_fn
 
+    def restore_experiment_state(self) -> List[Trial]:
+        # TODO(justinvyu): implement restoration directly from cloud (no download)
+        raise NotImplementedError
+
     def restore_from_dir(self) -> List[Trial]:
         """Restore TrialRunner state from local experiment directory.
 
