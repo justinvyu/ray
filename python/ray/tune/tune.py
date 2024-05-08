@@ -32,7 +32,7 @@ from ray.tune.error import TuneError
 from ray.tune.execution.placement_groups import PlacementGroupFactory
 from ray.tune.execution.tune_controller import TuneController
 from ray.tune.experiment import Experiment, Trial, _convert_to_experiment_list
-from ray.tune.experimental.output import IS_NOTEBOOK, AirVerbosity, get_air_verbosity
+from ray.tune.experimental.output import AirVerbosity, get_air_verbosity
 from ray.tune.impl.placeholder import create_resolvers_map, inject_placeholders
 from ray.tune.logger import TBXLoggerCallback
 from ray.tune.progress_reporter import (
