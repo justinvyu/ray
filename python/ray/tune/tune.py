@@ -610,14 +610,6 @@ def run(
         )
 
     air_verbosity = get_air_verbosity(verbose)
-    if air_verbosity is not None and IS_NOTEBOOK:
-        logger.info(
-            "[output] This uses the legacy output and progress reporter, "
-            "as Jupyter notebooks are not supported by the new engine, yet. "
-            "For more information, please see "
-            "https://github.com/ray-project/ray/issues/36949"
-        )
-        air_verbosity = None
 
     if air_verbosity is not None:
         # Disable old output engine
