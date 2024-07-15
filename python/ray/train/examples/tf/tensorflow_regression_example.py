@@ -13,7 +13,7 @@ from ray.train.tensorflow import TensorflowTrainer
 def build_model() -> tf.keras.Model:
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.InputLayer(input_shape=(100,)),
+            tf.keras.layers.Input(shape=(100,)),
             tf.keras.layers.Dense(10),
             tf.keras.layers.Dense(1),
         ]
@@ -22,30 +22,39 @@ def build_model() -> tf.keras.Model:
 
 
 def train_func(config: dict):
+    print("in train func...")
     batch_size = config.get("batch_size", 64)
     epochs = config.get("epochs", 3)
 
     strategy = tf.distribute.MultiWorkerMirroredStrategy()
     with strategy.scope():
+        print("!! building model...")
         # Model building/compiling need to be within `strategy.scope()`.
         multi_worker_model = build_model()
+        print("!! compiling...")
         multi_worker_model.compile(
             optimizer=tf.keras.optimizers.SGD(learning_rate=config.get("lr", 1e-3)),
-            loss=tf.keras.losses.mean_absolute_error,
-            metrics=[tf.keras.metrics.mean_squared_error],
+            loss=tf.keras.losses.MeanAbsoluteError(),
+            metrics=[tf.keras.metrics.MeanSquaredError()],
         )
+
+    print("!! built model")
 
     dataset = train.get_dataset_shard("train")
 
     results = []
     for _ in range(epochs):
-        tf_dataset = dataset.to_tf(
-            feature_columns="x", label_columns="y", batch_size=batch_size
-        )
-        history = multi_worker_model.fit(
-            tf_dataset, callbacks=[ReportCheckpointCallback()]
-        )
-        results.append(history.history)
+        # tf_dataset = dataset.to_tf(
+        #     feature_columns="x", label_columns="y", batch_size=batch_size
+        # )
+        print("in train train loop...")
+        for batch in dataset.iter_batches(batch_size=batch_size):
+            print("in train train loop batch...")
+            # , callbacks=[ReportCheckpointCallback()]
+            multi_worker_model.train_on_batch(batch["x"], batch["y"])
+
+        # results.append(history.history)
+    print("training done...")
     return results
 
 

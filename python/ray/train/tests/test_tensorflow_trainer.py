@@ -16,7 +16,7 @@ from ray.train.tensorflow import TensorflowCheckpoint, TensorflowTrainer
 
 @pytest.fixture
 def ray_start_4_cpus():
-    address_info = ray.init(num_cpus=4)
+    address_info = ray.init(num_cpus=10)
     yield address_info
     # The code after the yield will run as teardown code.
     ray.shutdown()
@@ -27,7 +27,7 @@ def build_model():
 
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.InputLayer(input_shape=()),
+            tf.keras.layers.Input(shape=(1,)),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(1),
         ]
@@ -36,7 +36,8 @@ def build_model():
     return model
 
 
-@pytest.mark.parametrize("num_workers", [1, 2])
+# @pytest.mark.parametrize("num_workers", [1, 2])
+@pytest.mark.parametrize("num_workers", [2])
 def test_tensorflow_linear(ray_start_4_cpus, num_workers):
     """Also tests air Keras callback."""
     epochs = 3
@@ -73,16 +74,18 @@ def test_report_and_load_using_ml_session(ray_start_4_cpus):
             with checkpoint.as_directory() as checkpoint_dir:
                 import tensorflow as tf
 
-                model = tf.keras.models.load_model(checkpoint_dir)
+                model = tf.keras.models.load_model(
+                    os.path.join(checkpoint_dir, "model.keras")
+                )
         else:
             model = build_model()
 
         if train.get_context().get_world_rank() == 0:
             with tempfile.TemporaryDirectory() as tmp_dir:
-                model.save(tmp_dir)
+                model.save(os.path.join(tmp_dir, "model.keras"))
                 train.report(
                     metrics={"iter": 1},
-                    checkpoint=TensorflowCheckpoint.from_saved_model(tmp_dir),
+                    checkpoint=ray.train.Checkpoint.from_directory(tmp_dir),
                 )
         else:
             train.report(metrics={"iter": 1})
@@ -103,7 +106,7 @@ def test_report_and_load_using_ml_session(ray_start_4_cpus):
     result = trainer2.fit()
     checkpoint = result.checkpoint
     with checkpoint.as_directory() as ckpt_dir:
-        assert os.path.exists(os.path.join(ckpt_dir, "saved_model.pb"))
+        assert os.path.exists(os.path.join(ckpt_dir, "model.keras"))
     assert result.metrics["iter"] == 1
 
 

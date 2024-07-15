@@ -154,6 +154,7 @@ class ReportCheckpointCallback(_Callback):
         self._metrics = metrics
 
     def _handle(self, logs: Dict, when: str):
+        print("!!!!! in handle...")
         assert when in self._checkpoint_on or when in self._report_metrics_on
 
         metrics = self._get_reported_metrics(logs)

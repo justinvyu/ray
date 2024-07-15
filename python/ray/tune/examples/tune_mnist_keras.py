@@ -23,31 +23,34 @@ def train_mnist(config):
     x_train, x_test = x_train / 255.0, x_test / 255.0
     model = tf.keras.models.Sequential(
         [
-            tf.keras.layers.Flatten(input_shape=(28, 28)),
+            tf.keras.layers.Input(shape=(28, 28)),
+            tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(config["hidden"], activation="relu"),
             tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(num_classes, activation="softmax"),
+            tf.keras.layers.Dense(num_classes),
         ]
     )
 
     model.compile(
-        loss="sparse_categorical_crossentropy",
-        optimizer=tf.keras.optimizers.SGD(lr=config["lr"], momentum=config["momentum"]),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        optimizer=tf.keras.optimizers.SGD(
+            learning_rate=config["lr"], momentum=config["momentum"]
+        ),
         metrics=["accuracy"],
     )
 
     model.fit(
         x_train,
         y_train,
-        batch_size=batch_size,
+        # batch_size=batch_size,
         epochs=epochs,
-        verbose=0,
-        validation_data=(x_test, y_test),
-        callbacks=[
-            ReportCheckpointCallback(
-                checkpoint_on=[], metrics={"mean_accuracy": "accuracy"}
-            )
-        ],
+        # verbose=0,
+        # validation_data=(x_test, y_test),
+        # callbacks=[
+        #     ReportCheckpointCallback(
+        #         checkpoint_on=[], metrics={"mean_accuracy": "accuracy"}
+        #     )
+        # ],
     )
 
 
