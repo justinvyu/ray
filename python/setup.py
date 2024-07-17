@@ -759,7 +759,7 @@ build_dir = os.path.join(ROOT_DIR, "build")
 if os.path.isdir(build_dir):
     shutil.rmtree(build_dir)
 
-(
+if __name__ == "__main__":
     setuptools.setup(
         name=setup_spec.name,
         version=setup_spec.version,
@@ -808,6 +808,3 @@ if os.path.isdir(build_dir):
         zip_safe=False,
         license="Apache 2.0",
     )
-    if __name__ == "__main__"
-    else None
-)
