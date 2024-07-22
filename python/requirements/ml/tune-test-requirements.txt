@@ -1,10 +1,11 @@
 -r dl-cpu-requirements.txt
 
-aim==3.17.5
+aim; python_version < "3.12"
 
 gpy==1.13.1
 
 jupyterlab
+notebook==6.5.7
 matplotlib!=3.4.3
 
 pytest-remotedata==0.3.2

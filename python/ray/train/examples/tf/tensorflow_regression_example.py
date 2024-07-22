@@ -1,5 +1,6 @@
 import argparse
 
+import keras
 import tensorflow as tf
 
 import ray
@@ -10,8 +11,8 @@ from ray.train import Result, ScalingConfig
 from ray.train.tensorflow import TensorflowTrainer
 
 
-def build_model() -> tf.keras.Model:
-    model = tf.keras.Sequential(
+def build_model() -> keras.Model:
+    model = keras.Sequential(
         [
             tf.keras.layers.Input(shape=(100,)),
             tf.keras.layers.Dense(10),

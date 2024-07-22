@@ -1,4 +1,5 @@
 import functools
+import sys
 import time
 from contextlib import nullcontext
 from unittest.mock import patch
@@ -285,7 +286,7 @@ class KillCallback:
         self.counter += 1
 
 
-@pytest.mark.parametrize("backend", ["test", "torch", "tf", "horovod"])
+@pytest.mark.parametrize("backend", ["test", "torch", "tf"])
 def test_worker_kill(ray_start_4_cpus, backend):
     if backend == "test":
         test_config = BackendConfig()
@@ -297,10 +298,6 @@ def test_worker_kill(ray_start_4_cpus, backend):
         from ray.train.tensorflow import TensorflowConfig
 
         test_config = TensorflowConfig()
-    elif backend == "horovod":
-        from ray.train.horovod import HorovodConfig
-
-        test_config = HorovodConfig()
 
     def train_func():
         for i in range(2):
@@ -385,8 +382,4 @@ def test_torch_linear_failure(ray_start_4_cpus):
 
 
 if __name__ == "__main__":
-    import sys
-
-    import pytest
-
     sys.exit(pytest.main(sys.argv[1:] + ["-v", "-x", __file__]))

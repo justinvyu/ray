@@ -12,9 +12,9 @@ import pytest
 import requests
 from google.protobuf import text_format
 
-from mock import patch
-
+import psutil
 import ray
+from unittest.mock import patch
 from ray._private import ray_constants
 from ray._private.metrics_agent import fix_grpc_metric
 from ray._private.test_utils import (
