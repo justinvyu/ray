@@ -38,7 +38,7 @@ class TorchRecRunner(TrainLoopRunner):
         sdd = SparseDataDistUtil(
             model=self.model,
             data_dist_stream=torch.cuda.Stream(),
-            # prefetch_stream=torch.cuda.Stream(),
+            prefetch_stream=torch.cuda.Stream(),
         )
         pipeline = [
             PipelineStage(
@@ -52,12 +52,12 @@ class TorchRecRunner(TrainLoopRunner):
                 stream=sdd.data_dist_stream,
                 fill_callback=sdd.wait_sparse_data_dist,
             ),
-            # PipelineStage(
-            #     name="prefetch",
-            #     runnable=sdd.prefetch,
-            #     stream=sdd.prefetch_stream,
-            #     fill_callback=sdd.load_prefetch,
-            # ),
+            PipelineStage(
+                name="prefetch",
+                runnable=sdd.prefetch,
+                stream=sdd.prefetch_stream,
+                fill_callback=sdd.load_prefetch,
+            ),
         ]
 
         self.pipeline = StagedTrainPipeline(pipeline_stages=pipeline)
