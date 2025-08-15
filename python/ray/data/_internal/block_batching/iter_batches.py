@@ -137,10 +137,10 @@ class BatchIterator:
         )
 
     def _prefetch_blocks(
-        self, ref_bundles: Iterator[RefBundle]
+        self, ref_bundle_iter: Iterator[RefBundle]
     ) -> Iterator[ObjectRef[Block]]:
         return prefetch_batches_locally(
-            ref_bundles=ref_bundles,
+            ref_bundle_iter=ref_bundle_iter,
             prefetcher=self._prefetcher,
             num_batches_to_prefetch=self._prefetch_batches,
             batch_size=self._batch_size,
@@ -148,13 +148,13 @@ class BatchIterator:
         )
 
     def _resolve_block_refs(
-        self, block_refs: Iterator[ObjectRef[Block]]
+        self, block_ref_iter: Iterator[ObjectRef[Block]]
     ) -> Iterator[Block]:
-        return resolve_block_refs(block_ref_iter=block_refs, stats=self._stats)
+        return resolve_block_refs(block_ref_iter=block_ref_iter, stats=self._stats)
 
-    def _blocks_to_batches(self, blocks: Iterator[Block]) -> Iterator[Batch]:
+    def _blocks_to_batches(self, block_iter: Iterator[Block]) -> Iterator[Batch]:
         return blocks_to_batches(
-            block_iter=blocks,
+            block_iter=block_iter,
             stats=self._stats,
             batch_size=self._batch_size,
             drop_last=self._drop_last,
@@ -163,9 +163,9 @@ class BatchIterator:
             ensure_copy=self._ensure_copy,
         )
 
-    def _format_batches(self, batches: Iterator[Batch]) -> Iterator[Batch]:
+    def _format_batches(self, batch_iter: Iterator[Batch]) -> Iterator[Batch]:
         return _format_in_threadpool(
-            batch_iter=batches,
+            batch_iter=batch_iter,
             stats=self._stats,
             batch_format=self._batch_format,
             collate_fn=self._collate_fn,
@@ -184,9 +184,9 @@ class BatchIterator:
         )
 
     def _restore_original_batch_order(
-        self, batches: Iterator[Batch]
+        self, batch_iter: Iterator[Batch]
     ) -> Iterator[Batch]:
-        return restore_original_order(batches)
+        return restore_original_order(batch_iter)
 
     def _pipeline(self, ref_bundles: Iterator[RefBundle]) -> Iterator[Batch]:
         # Step 1: Prefetch logical batches locally.
