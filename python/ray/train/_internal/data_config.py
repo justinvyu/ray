@@ -66,16 +66,23 @@ class DataConfig:
 
         self._num_train_cpus = 0.0
         self._num_train_gpus = 0.0
+        self._object_store_memory = 0.0
 
-    def set_train_total_resources(self, num_train_cpus: float, num_train_gpus: float):
-        """Set the total number of CPUs and GPUs used by training.
+    def set_train_total_resources(
+        self,
+        num_train_cpus: float,
+        num_train_gpus: float,
+        object_store_memory: float = 0.0,
+    ):
+        """Set the total resources used by training (CPUs, GPUs, object store memory).
 
-        If CPU or GPU resource limits are not set, they will be set to the
-        total cluster resources minus the resources used by training.
+        If resource limits are not set by the user, they will be set to the
+        total cluster resources minus the resources used by training. This
+        ensures dataset execution does not compete with training workers.
         """
-        # TODO: We may also include other resources besides CPU and GPU.
         self._num_train_cpus = num_train_cpus
         self._num_train_gpus = num_train_gpus
+        self._object_store_memory = object_store_memory
 
     def _get_execution_options(self, dataset_name: str) -> "ExecutionOptions":
         """Return a copy of the configured execution options for a given dataset name."""
@@ -129,7 +136,9 @@ class DataConfig:
                 execution_options.exclude_resources = (
                     execution_options.exclude_resources.add(
                         ExecutionResources(
-                            cpu=self._num_train_cpus, gpu=self._num_train_gpus
+                            cpu=self._num_train_cpus,
+                            gpu=self._num_train_gpus,
+                            object_store_memory=self._object_store_memory,
                         )
                     )
                 )

@@ -123,7 +123,9 @@ class DatasetsCallback(WorkerGroupCallback, ControllerCallback):
         # Notify the DataConfig about the total resources reserved for training.
         total_train_resources = self.get_train_total_resources(self._scaling_config)
         self._data_config.set_train_total_resources(
-            total_train_resources.get("CPU", 0), total_train_resources.get("GPU", 0)
+            total_train_resources.get("CPU", 0),
+            total_train_resources.get("GPU", 0),
+            total_train_resources.get("object_store_memory", 0),
         )
 
         datasets = {k: v() if callable(v) else v for k, v in self._datasets.items()}
