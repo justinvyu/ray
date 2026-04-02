@@ -3,7 +3,6 @@ import math
 import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from functools import reduce
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional
 
 from ray._common.utils import env_bool, env_float
@@ -356,11 +355,17 @@ class ResourceManager:
     def _get_downstream_ineligible_ops_usage(
         self, op: PhysicalOperator
     ) -> ExecutionResources:
-        return reduce(
-            lambda x, y: x.add(y),
-            [self.get_op_usage(op) for op in self._get_downstream_ineligible_ops(op)],
-            ExecutionResources.zero(),
-        )
+        """Compute the total resource usage of downstream ineligible operators
+        attributed to `op`, filtering external output queues by producer ID.
+
+        Bundles tagged with `op.id` are attributed to `op`. Bundles with
+        unknown producer (None) are conservatively attributed to all producers.
+        """
+        total_memory = 0
+        for ineligible_op in self._get_downstream_ineligible_ops(op):
+            state = self._topology[ineligible_op]
+            total_memory += state.output_queue_bytes(producer_op_id=op.id)
+        return ExecutionResources(object_store_memory=total_memory)
 
     def get_mem_op_internal(self, op: PhysicalOperator) -> int:
         """Return the memory usage of pending task outputs for the given operator."""

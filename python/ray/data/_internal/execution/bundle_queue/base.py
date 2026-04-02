@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import abc
+from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
+    Dict,
     Optional,
 )
 
@@ -15,8 +17,17 @@ if TYPE_CHECKING:
 
 class BundleQueue(abc.ABC):
     @abc.abstractmethod
-    def estimate_size_bytes(self) -> int:
-        """Returns the estimated size in bytes of all bundles."""
+    def estimate_size_bytes(self, *, producer_op_id: Optional[str] = None) -> int:
+        """Returns the estimated size in bytes of bundles.
+
+        Args:
+            producer_op_id: If specified, return bytes from this producer plus
+                bytes from unknown producers (None). If not specified, return
+                total bytes across all producers.
+
+        Returns:
+            The estimated size in bytes.
+        """
         ...
 
     @abc.abstractmethod
@@ -140,21 +151,30 @@ class BaseBundleQueue(BundleQueue):
         self._num_blocks: int = 0
         self._num_bundles: int = 0
         self._num_rows: int = 0
+        self._nbytes_per_producer: Dict[Optional[str], int] = defaultdict(int)
 
     def _on_enqueue_bundle(self, bundle: RefBundle):
         self._nbytes += bundle.size_bytes()
         self._num_blocks += len(bundle.block_refs)
         self._num_bundles += 1
         self._num_rows += bundle.num_rows() or 0
+        for producer_id, nbytes in bundle.size_bytes_per_producer().items():
+            self._nbytes_per_producer[producer_id] += nbytes
 
     def _on_dequeue_bundle(self, bundle: RefBundle):
         self._nbytes -= bundle.size_bytes()
         self._num_blocks -= len(bundle.block_refs)
         self._num_bundles -= 1
         self._num_rows -= bundle.num_rows() or 0
+        for producer_id, nbytes in bundle.size_bytes_per_producer().items():
+            self._nbytes_per_producer[producer_id] -= nbytes
 
-    def estimate_size_bytes(self) -> int:
-        """Return the estimated size in bytes of all bundles."""
+    def estimate_size_bytes(self, *, producer_op_id: Optional[str] = None) -> int:
+        if producer_op_id is not None:
+            # Return bytes from this producer + untagged (None) bytes.
+            return self._nbytes_per_producer.get(
+                producer_op_id, 0
+            ) + self._nbytes_per_producer.get(None, 0)
         return self._nbytes
 
     def num_blocks(self) -> int:
@@ -173,6 +193,7 @@ class BaseBundleQueue(BundleQueue):
         self._num_blocks = 0
         self._num_bundles = 0
         self._nbytes = 0
+        self._nbytes_per_producer.clear()
 
     def add(self, bundle: RefBundle, **kwargs: Any):
         """Add a bundle to the tail(end) of the queue. Base classes should override

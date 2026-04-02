@@ -345,16 +345,18 @@ class OutputSplitter(InternalQueueOperatorMixin, PhysicalOperator):
 
 
 def _split(bundle: RefBundle, left_size: int) -> Tuple[RefBundle, RefBundle]:
-    left_blocks, left_meta = [], []
-    right_blocks, right_meta = [], []
+    left_blocks, left_meta, left_producers = [], [], []
+    right_blocks, right_meta, right_producers = [], [], []
     acc = 0
-    for b, m in bundle.blocks:
+    for (b, m), producer_id in zip(bundle.blocks, bundle.producer_op_ids):
         if acc >= left_size:
             right_blocks.append(b)
             right_meta.append(m)
+            right_producers.append(producer_id)
         elif acc + m.num_rows <= left_size:
             left_blocks.append(b)
             left_meta.append(m)
+            left_producers.append(producer_id)
             acc += m.num_rows
         else:
             # Trouble case: split it up.
@@ -364,17 +366,21 @@ def _split(bundle: RefBundle, left_size: int) -> Tuple[RefBundle, RefBundle]:
             right_meta.append(rm)
             left_blocks.append(lb)
             right_blocks.append(rb)
+            left_producers.append(producer_id)
+            right_producers.append(producer_id)
             acc += lm.num_rows
             assert acc == left_size
     left = RefBundle(
         list(zip(left_blocks, left_meta)),
         owns_blocks=bundle.owns_blocks,
         schema=bundle.schema,
+        producer_op_ids=tuple(left_producers),
     )
     right = RefBundle(
         list(zip(right_blocks, right_meta)),
         owns_blocks=bundle.owns_blocks,
         schema=bundle.schema,
+        producer_op_ids=tuple(right_producers),
     )
     assert left.num_rows() == left_size
     assert left.num_rows() + right.num_rows() == bundle.num_rows()

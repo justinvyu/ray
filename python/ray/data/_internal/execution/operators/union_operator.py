@@ -1,3 +1,4 @@
+import dataclasses
 from typing import List, Optional
 
 from ray.data._internal.execution.bundle_queue import FIFOBundleQueue
@@ -96,9 +97,18 @@ class UnionOperator(InternalQueueOperatorMixin, NAryOperator):
             bundle = self._output_buffer.get_next()
             self._metrics.on_output_dequeued(bundle)
 
+    def throttling_disabled(self) -> bool:
+        return True
+
     def _add_input_inner(self, refs: RefBundle, input_index: int) -> None:
         assert not self.has_completed()
         assert 0 <= input_index <= len(self._input_dependencies), input_index
+        # Tag blocks with the upstream operator's ID for per-producer
+        # memory attribution in downstream queues.
+        upstream_id = self.input_dependencies[input_index].id
+        refs = dataclasses.replace(
+            refs, producer_op_ids=(upstream_id,) * len(refs.blocks)
+        )
         if self._preserve_order:
             self._input_buffers[input_index].add(refs)
             self._metrics.on_input_queued(refs, input_index=input_index)

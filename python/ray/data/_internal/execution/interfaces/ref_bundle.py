@@ -69,6 +69,13 @@ class RefBundle:
     # output splits. It is otherwise None.
     output_split_idx: Optional[int] = None
 
+    # Per-block producer operator IDs, parallel to `blocks`.
+    # Each entry is the UUID of the eligible operator that produced that block,
+    # or None if unknown. Currently only set by UnionOperator to track which
+    # input stream produced each block for per-producer memory attribution.
+    # None entries are conservatively attributed to all producers when queried.
+    producer_op_ids: Optional[Tuple[Optional[str], ...]] = None
+
     # Object metadata (size, locations, spilling status)
     _cached_object_meta: Optional[Dict[ObjectRef, "_ObjectMetadata"]] = None
 
@@ -89,6 +96,15 @@ class RefBundle:
 
         if not isinstance(self.blocks, tuple):
             object.__setattr__(self, "blocks", tuple(self.blocks))
+
+        if self.producer_op_ids is None:
+            object.__setattr__(self, "producer_op_ids", (None,) * len(self.blocks))
+        else:
+            if not isinstance(self.producer_op_ids, tuple):
+                object.__setattr__(self, "producer_op_ids", tuple(self.producer_op_ids))
+            assert len(self.producer_op_ids) == len(
+                self.blocks
+            ), "Number of producer_op_ids and blocks must match"
 
         if self.slices is None:
             object.__setattr__(self, "slices", (None,) * len(self.blocks))
@@ -181,6 +197,30 @@ class RefBundle:
                 total += metadata.size_bytes
         return total
 
+    def size_bytes_per_producer(self) -> Dict[Optional[str], int]:
+        """Return a dict mapping producer_op_id to total size in bytes.
+
+        Returns:
+            A dict mapping each producer_op_id (or None) to the total bytes
+            of blocks with that producer.
+        """
+        result: Dict[Optional[str], int] = defaultdict(int)
+        for (_, metadata), block_slice, producer_id in zip(
+            self.blocks, self.slices, self.producer_op_ids
+        ):
+            if block_slice is None:
+                result[producer_id] += metadata.size_bytes
+            elif metadata.num_rows is None or metadata.num_rows == 0:
+                result[producer_id] += metadata.size_bytes
+            elif metadata.num_rows != block_slice.num_rows:
+                per_row = metadata.size_bytes / metadata.num_rows
+                result[producer_id] += max(
+                    1, int(math.ceil(per_row * block_slice.num_rows))
+                )
+            else:
+                result[producer_id] += metadata.size_bytes
+        return result
+
     def destroy_if_owned(self) -> int:
         """Clears the object store memory for these blocks if owned.
 
@@ -268,21 +308,27 @@ class RefBundle:
 
         consumed_blocks: List[Tuple[ObjectRef[Block], BlockMetadata]] = []
         consumed_slices: List[BlockSlice] = []
+        consumed_producer_ids: List[Optional[str]] = []
         remaining_blocks: List[Tuple[ObjectRef[Block], BlockMetadata]] = []
         remaining_slices: List[BlockSlice] = []
+        remaining_producer_ids: List[Optional[str]] = []
 
         rows_to_take = needed_rows
 
-        for (block_ref, metadata), block_slice in zip(self.blocks, block_slices):
+        for (block_ref, metadata), block_slice, producer_id in zip(
+            self.blocks, block_slices, self.producer_op_ids
+        ):
             block_rows = block_slice.num_rows
             if rows_to_take >= block_rows:
                 consumed_blocks.append((block_ref, metadata))
                 consumed_slices.append(block_slice)
+                consumed_producer_ids.append(producer_id)
                 rows_to_take -= block_rows
             else:
                 if rows_to_take == 0:
                     remaining_blocks.append((block_ref, metadata))
                     remaining_slices.append(block_slice)
+                    remaining_producer_ids.append(producer_id)
                     continue
                 consume_slice = BlockSlice(
                     start_offset=block_slice.start_offset,
@@ -290,6 +336,7 @@ class RefBundle:
                 )
                 consumed_blocks.append((block_ref, metadata))
                 consumed_slices.append(consume_slice)
+                consumed_producer_ids.append(producer_id)
 
                 leftover_rows = block_rows - rows_to_take
                 if leftover_rows > 0:
@@ -299,6 +346,7 @@ class RefBundle:
                     )
                     remaining_blocks.append((block_ref, metadata))
                     remaining_slices.append(remainder_slice)
+                    remaining_producer_ids.append(producer_id)
 
                 rows_to_take = 0
 
@@ -307,6 +355,7 @@ class RefBundle:
             schema=self.schema,
             owns_blocks=False,
             slices=tuple(consumed_slices) if consumed_slices else None,
+            producer_op_ids=tuple(consumed_producer_ids),
         )
 
         remaining_bundle = RefBundle(
@@ -314,6 +363,7 @@ class RefBundle:
             schema=self.schema,
             owns_blocks=False,
             slices=tuple(remaining_slices) if remaining_slices else None,
+            producer_op_ids=tuple(remaining_producer_ids),
         )
 
         return sliced_bundle, remaining_bundle
@@ -342,6 +392,9 @@ class RefBundle:
         merged_slices = list(
             itertools.chain.from_iterable(bundle.slices for bundle in bundles)
         )
+        merged_producer_ids = tuple(
+            itertools.chain.from_iterable(bundle.producer_op_ids for bundle in bundles)
+        )
         # Ray Data uses the `owns_blocks` flag to determine if the system can eagerly
         # destroy blocks when they're no longer needed. To be safe, we only set this
         # to True if all input bundles own their blocks.
@@ -353,6 +406,7 @@ class RefBundle:
             schema=schema,
             owns_blocks=owns_blocks,
             slices=merged_slices,
+            producer_op_ids=merged_producer_ids,
         )
 
     def __eq__(self, other: "RefBundle"):

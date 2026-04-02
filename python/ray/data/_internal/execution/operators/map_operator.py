@@ -907,9 +907,17 @@ def _merge_ref_bundles(*bundles: RefBundle) -> RefBundle:
     blocks = list(
         itertools.chain(block for bundle in bundles for block in bundle.blocks)
     )
+    producer_op_ids = tuple(
+        itertools.chain.from_iterable(bundle.producer_op_ids for bundle in bundles)
+    )
     owns_blocks = all(bundle.owns_blocks for bundle in bundles)
     schema = _take_first_non_empty_schema(bundle.schema for bundle in bundles)
-    return RefBundle(blocks, owns_blocks=owns_blocks, schema=schema)
+    return RefBundle(
+        blocks,
+        owns_blocks=owns_blocks,
+        schema=schema,
+        producer_op_ids=producer_op_ids,
+    )
 
 
 def _canonicalize_ray_remote_args(ray_remote_args: Dict[str, Any]) -> Dict[str, Any]:
