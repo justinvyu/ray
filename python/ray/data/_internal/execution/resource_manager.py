@@ -358,13 +358,21 @@ class ResourceManager:
         """Compute the total resource usage of downstream ineligible operators
         attributed to `op`, filtering external output queues by producer ID.
 
-        Bundles tagged with `op.id` are attributed to `op`. Bundles with
-        unknown producer (None) are conservatively attributed to all producers.
+        For each ineligible op, we take its full usage but replace the external
+        output queue bytes with the per-producer filtered amount. This ensures
+        internal inqueue, internal outqueue, and pending task inputs are still
+        accounted for (conservatively attributed to all upstream producers).
         """
         total_memory = 0
         for ineligible_op in self._get_downstream_ineligible_ops(op):
+            usage = self.get_op_usage(ineligible_op)
             state = self._topology[ineligible_op]
-            total_memory += state.output_queue_bytes(producer_op_id=op.id)
+            # Replace total external outqueue with per-producer filtered amount.
+            total_ext_outqueue = state.output_queue_bytes()
+            producer_ext_outqueue = state.output_queue_bytes(producer_op_id=op.id)
+            total_memory += (
+                usage.object_store_memory - total_ext_outqueue + producer_ext_outqueue
+            )
         return ExecutionResources(object_store_memory=total_memory)
 
     def get_mem_op_internal(self, op: PhysicalOperator) -> int:
