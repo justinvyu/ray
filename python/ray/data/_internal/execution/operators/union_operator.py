@@ -52,6 +52,16 @@ class UnionOperator(InternalQueueOperatorMixin, NAryOperator):
         # When True, blocks are emitted in round-robin order across inputs,
         # ensuring the same input always produces the same output order.
         self._preserve_order = options.preserve_order
+
+        # Pre-compute the upstream operator ID that produces each input.
+        # Used to tag bundles that pass through this operator for per-producer memory attribution.
+        self._upstream_producer_ids: List[str] = []
+        for input_op in self.input_dependencies:
+            op = input_op
+            while op.throttling_disabled() and op.input_dependencies:
+                op = op.input_dependencies[0]
+            self._upstream_producer_ids.append(op.id)
+
         super().start(options)
 
     def num_outputs_total(self) -> Optional[int]:
@@ -103,12 +113,12 @@ class UnionOperator(InternalQueueOperatorMixin, NAryOperator):
     def _add_input_inner(self, refs: RefBundle, input_index: int) -> None:
         assert not self.has_completed()
         assert 0 <= input_index <= len(self._input_dependencies), input_index
-        # Tag blocks with the upstream operator's ID for per-producer
-        # memory attribution in downstream queues.
-        upstream_id = self.input_dependencies[input_index].id
+
+        upstream_producer_id = self._upstream_producer_ids[input_index]
         refs = dataclasses.replace(
-            refs, producer_op_ids=(upstream_id,) * len(refs.blocks)
+            refs, producer_op_ids=(upstream_producer_id,) * len(refs.blocks)
         )
+
         if self._preserve_order:
             self._input_buffers[input_index].add(refs)
             self._metrics.on_input_queued(refs, input_index=input_index)
